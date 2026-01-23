@@ -5,16 +5,14 @@ plugins {
 }
 
 android {
-    namespace = "com.example.wordgame"
-    compileSdk {
-        version = release(36)
-    }
+    namespace = "app.wordgame"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.wordgame"
+        applicationId = "app.wordgame"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
+        versionCode = 4
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -29,13 +27,16 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
     }
@@ -54,8 +55,10 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    // Google AdMob - AJOUTÉ
+    implementation("com.google.android.gms:play-services-ads:23.5.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

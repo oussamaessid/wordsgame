@@ -12,6 +12,8 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
             putString("guesses", state.guesses.joinToString(","))
             putBoolean("gameOver", state.gameOver)
             putBoolean("won", state.won)
+            putLong("gameStartTime", state.gameStartTime)
+            putLong("gameEndTime", state.gameEndTime)
             apply()
         }
     }
@@ -24,13 +26,17 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
         val guesses = if (guessesStr.isEmpty()) emptyList() else guessesStr.split(",")
         val gameOver = prefs.getBoolean("gameOver", false)
         val won = prefs.getBoolean("won", false)
+        val gameStartTime = prefs.getLong("gameStartTime", 0L)
+        val gameEndTime = prefs.getLong("gameEndTime", 0L)
 
         return _root_ide_package_.app.wordgame.domain.model.GameState(
-            date,
-            word,
-            guesses,
-            gameOver,
-            won
+            date = date,
+            word = word,
+            guesses = guesses,
+            gameOver = gameOver,
+            won = won,
+            gameStartTime = gameStartTime,
+            gameEndTime = gameEndTime
         )
     }
 

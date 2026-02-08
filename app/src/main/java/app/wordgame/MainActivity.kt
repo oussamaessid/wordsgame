@@ -29,9 +29,11 @@ class MainActivity : ComponentActivity() {
         // Initialiser AdMob
         app.wordgame.ads.AdManager.initialize(this)
 
-        // Charger les annonces
+        // Charger TOUTES les annonces
         app.wordgame.ads.AdManager.loadAppOpenAd(this)
         app.wordgame.ads.AdManager.loadInterstitial(this)
+        app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)
+        app.wordgame.ads.AdManager.loadRewardedAdSolution(this)
 
         appStartTime = System.currentTimeMillis()
 
@@ -47,7 +49,7 @@ class MainActivity : ComponentActivity() {
 
             // Afficher l'annonce d'ouverture une seule fois
             LaunchedEffect(Unit) {
-                delay(500) // Petit délai pour que l'UI soit prête
+                delay(500)
                 if (showAppOpenAd && !appOpenAdShown) {
                     app.wordgame.ads.AdManager.showAppOpenAd(this@MainActivity) {
                         showAppOpenAd = false
@@ -95,6 +97,8 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             app.wordgame.ads.AdManager.loadInterstitial(this@MainActivity)
+            app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this@MainActivity)
+            app.wordgame.ads.AdManager.loadRewardedAdSolution(this@MainActivity)
         }
     }
 }

@@ -20,9 +20,8 @@ fun LanguageSelectionScreen(onLanguageSelected: (app.wordgame.domain.model.Langu
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .systemBarsPadding() // Gère les barres système
+            .systemBarsPadding()
     ) {
-        // Contenu principal
         Box(
             modifier = Modifier
                 .fillMaxWidth()

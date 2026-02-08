@@ -131,6 +131,7 @@ fun GameGrid(
     viewModel: app.wordgame.presentation.viewmodel.GameViewModel,
     cellSize: Dp,
     cellSpacing: Dp,
+    maxAttempts: Int = 5,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -153,7 +154,8 @@ fun GameGrid(
                     Alignment.CenterVertically
                 )
             ) {
-                repeat(_root_ide_package_.app.wordgame.presentation.viewmodel.GameViewModel.Companion.MAX_ATTEMPTS) { rowIndex ->
+                // Afficher dynamiquement 5 ou 6 lignes
+                repeat(maxAttempts) { rowIndex ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(cellSpacing)
                     ) {

@@ -19,7 +19,8 @@ data class GameUiState(
     val targetWord: String = "",
     val isLoading: Boolean = true,
     val gameStartTime: Long = 0L,
-    val gameEndTime: Long = 0L
+    val gameEndTime: Long = 0L,
+    val showRewardedAdDialog: Boolean = false  // NOUVEAU
 )
 
 class GameViewModel(
@@ -35,7 +36,7 @@ class GameViewModel(
 
     companion object {
         const val WORD_LENGTH = 5
-        const val MAX_ATTEMPTS = 6
+        const val MAX_ATTEMPTS = 5  // 5 tentatives normales (pas 6)
     }
 
     private val _uiState = MutableStateFlow(GameUiState())
@@ -49,7 +50,6 @@ class GameViewModel(
         keyboardStates.putIfAbsent(language, mutableMapOf())
 
         viewModelScope.launch {
-            // ⚡ Charger les mots depuis GitHub avant tout
             repository.loadWordsFromUrl()
 
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -59,7 +59,6 @@ class GameViewModel(
             val stats = loadStatsUseCase(language)
 
             if (savedState != null && savedState.word == targetWord && savedState.date == today) {
-                // ✅ Partie du même jour → restaurer avec les temps sauvegardés
                 _uiState.value = GameUiState(
                     guesses = savedState.guesses,
                     gameOver = savedState.gameOver,
@@ -73,12 +72,11 @@ class GameViewModel(
                 )
                 updateKeyboardFromGuesses(savedState.guesses, targetWord)
             } else {
-                // 🆕 Nouveau jour ou nouvelle partie → réinitialiser tout à 00:00
                 _uiState.value = GameUiState(
                     stats = stats,
                     targetWord = targetWord,
                     isLoading = false,
-                    gameStartTime = System.currentTimeMillis(), // ⏱️ Démarrer le chrono
+                    gameStartTime = System.currentTimeMillis(),
                     gameEndTime = 0L
                 )
                 keyboardStates[language]?.clear()
@@ -126,22 +124,48 @@ class GameViewModel(
         val result = validateGuessUseCase(state.currentGuess, state.targetWord)
         val newGuesses = state.guesses + result.guess
         val won = result.isCorrect
-        val gameOver = won || newGuesses.size >= MAX_ATTEMPTS
-
-        val endTime = if (gameOver) System.currentTimeMillis() else 0L
 
         _uiState.value = state.copy(
             guesses = newGuesses,
-            currentGuess = "",
-            won = won,
-            gameOver = gameOver,
-            gameEndTime = endTime // ⏱️ Arrêter le chrono si game over
+            currentGuess = ""
         )
 
         updateKeyboardFromGuesses(listOf(state.currentGuess), state.targetWord)
 
-        if (gameOver) handleGameOver(won)
-        saveGameState()
+        // ⚠️ IMPORTANT: Vérifier la VICTOIRE en PREMIER
+        when {
+            won -> {
+                // VICTOIRE (peut être à la ligne 1, 2, 3, 4, 5 ou 6) ✅
+                val endTime = System.currentTimeMillis()
+                _uiState.value = _uiState.value.copy(
+                    won = true,
+                    gameOver = true,
+                    gameEndTime = endTime
+                )
+                handleGameOver(true)
+            }
+            newGuesses.size > MAX_ATTEMPTS -> {
+                // PERDU APRÈS 6 ESSAIS (ligne bonus utilisée et incorrecte) ❌
+                val endTime = System.currentTimeMillis()
+                _uiState.value = _uiState.value.copy(
+                    gameOver = true,
+                    won = false,
+                    gameEndTime = endTime
+                )
+                handleGameOver(false)
+            }
+            newGuesses.size >= MAX_ATTEMPTS -> {
+                // PERDU APRÈS 5 ESSAIS → AFFICHER LE DIALOGUE (PAS gameOver encore) 🎁
+                _uiState.value = _uiState.value.copy(
+                    showRewardedAdDialog = true  // Juste le dialogue, pas gameOver
+                )
+                saveGameState()
+            }
+            else -> {
+                // CONTINUER À JOUER (lignes 1, 2, 3, 4) ⏩
+                saveGameState()
+            }
+        }
     }
 
     private fun handleDelete() {
@@ -163,11 +187,51 @@ class GameViewModel(
             val newStats = updateStatsUseCase(_uiState.value.stats, won)
             _uiState.value = _uiState.value.copy(stats = newStats, showStats = true)
             saveStatsUseCase(newStats, currentLanguage)
+            saveGameState()
+        }
+    }
+
+    /**
+     * Ajouter un essai bonus après avoir regardé la vidéo
+     * AJOUTE physiquement une 6ème ligne vide
+     */
+    fun addExtraTry() {
+        val state = _uiState.value
+        if (state.guesses.size == MAX_ATTEMPTS && !state.gameOver) {
+            // AJOUTER une ligne vide pour la 6ème tentative
+            val emptyRow = ""  // Ligne vide de 5 caractères vides
+
+            _uiState.value = state.copy(
+                showRewardedAdDialog = false,
+                currentGuess = ""  // Réinitialiser la saisie en cours
+            )
+            // gameOver reste false, le joueur peut jouer la ligne 6
+            saveGameState()
+        }
+    }
+
+    /**
+     * Terminer le jeu comme perdu (appelé quand l'utilisateur refuse la vidéo)
+     */
+    fun finishGameAsLost() {
+        val state = _uiState.value
+        if (state.guesses.size == MAX_ATTEMPTS && !state.won) {
+            val endTime = System.currentTimeMillis()
+            _uiState.value = state.copy(
+                showRewardedAdDialog = false,
+                gameOver = true,
+                gameEndTime = endTime
+            )
+            handleGameOver(false)
         }
     }
 
     fun toggleStatsDialog(show: Boolean) {
         _uiState.value = _uiState.value.copy(showStats = show)
+    }
+
+    fun hideRewardedAdDialog() {
+        _uiState.value = _uiState.value.copy(showRewardedAdDialog = false)
     }
 
     private fun saveGameState() {
@@ -179,8 +243,8 @@ class GameViewModel(
                 guesses = s.guesses,
                 gameOver = s.gameOver,
                 won = s.won,
-                gameStartTime = s.gameStartTime, // 💾 Sauvegarder le temps de début
-                gameEndTime = s.gameEndTime      // 💾 Sauvegarder le temps de fin
+                gameStartTime = s.gameStartTime,
+                gameEndTime = s.gameEndTime
             )
             saveGameStateUseCase(gs, currentLanguage)
         }

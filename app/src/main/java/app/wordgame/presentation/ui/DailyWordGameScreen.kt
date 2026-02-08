@@ -1,15 +1,15 @@
 package app.wordgame.presentation.ui
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -24,6 +24,7 @@ fun DailyWordGameScreen(
     )
 
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     // Initialisation du jeu au changement de langue
     LaunchedEffect(language) {
@@ -42,7 +43,7 @@ fun DailyWordGameScreen(
         return
     }
 
-    if (uiState.gameOver) {
+    if (uiState.gameOver && !uiState.showRewardedAdDialog) {
         Box(modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
@@ -66,7 +67,6 @@ fun DailyWordGameScreen(
     val screenHeight = configuration.screenHeightDp
     val isSmallScreen = screenHeight < 700
 
-    // Calcul dynamique des tailles pour garantir que tout rentre
     val cellSize = when {
         screenHeight < 600 -> 38.dp
         screenHeight < 700 -> 45.dp
@@ -79,82 +79,116 @@ fun DailyWordGameScreen(
         else -> 8.dp
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .systemBarsPadding()
-    ) {
-        // Header
-        GameHeader(
-            title = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "MOT DU JOUR" else "DAILY WORD",
-            subtitle = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "Aujourd'hui" else "Today",
-            backButtonText = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "Retour" else "Back",
-            onBackClick = onBackToLanguageSelection,
-            onStatsClick = { viewModel.toggleStatsDialog(true) },
-            isSmallScreen = isSmallScreen,
-            language = language
-        )
-
-        // Grille centrée sans scroll
-        Box(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .background(Color.White)
+                .systemBarsPadding()
         ) {
-            GameGrid(
-                currentGuess = uiState.currentGuess,
-                guesses = uiState.guesses,
-                viewModel = viewModel,
-                cellSize = cellSize,
-                cellSpacing = cellSpacing,
+            // Header
+            GameHeader(
+                title = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "MOT DU JOUR" else "DAILY WORD",
+                subtitle = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "Aujourd'hui" else "Today",
+                backButtonText = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "Retour" else "Back",
+                onBackClick = onBackToLanguageSelection,
+                onStatsClick = { viewModel.toggleStatsDialog(true) },
+                isSmallScreen = isSmallScreen,
+                language = language
+            )
+
+            // Grille centrée
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .wrapContentHeight()
-                    .padding(vertical = 4.dp, horizontal = 4.dp)
-            )
-        }
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                // Calculer le nombre maximum de lignes à afficher
+                // Normalement 5, mais si on a 5 guesses déjà et pas de dialogue = on peut en avoir 6
+                val maxAttempts = when {
+                    uiState.showRewardedAdDialog -> 5  // Dialogue affiché = 5 lignes
+                    uiState.guesses.size >= 5 -> 6     // 5+ tentatives = afficher 6 lignes
+                    else -> 5                           // Sinon = 5 lignes
+                }
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Clavier
-        GameKeyboard(
-            onKeyPress = { key -> viewModel.onKeyPressed(key) },
-            viewModel = viewModel,
-            gameOver = false,
-            language = language,
-            currentGuessLength = uiState.currentGuess.length
-        )
-
-        // Bannière publicitaire avec fond blanc (au-dessus des boutons de navigation)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(bottom = 8.dp) // Padding pour ne pas coller au bord
-        ) {
-            BannerAdView(
-                isLanguageScreen = false,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        // Stats accessibles manuellement pendant la partie
-        if (uiState.showStats) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                StatsDialog(
-                    won = uiState.won,
-                    gameOver = false,
-                    attempts = uiState.guesses.size,
-                    targetWord = uiState.targetWord,
-                    stats = uiState.stats,
-                    onDismiss = { viewModel.toggleStatsDialog(false) },
-                    language = language,
-                    gameStartTime = uiState.gameStartTime,
-                    gameEndTime = uiState.gameEndTime
+                GameGrid(
+                    currentGuess = uiState.currentGuess,
+                    guesses = uiState.guesses,
+                    viewModel = viewModel,
+                    cellSize = cellSize,
+                    cellSpacing = cellSpacing,
+                    maxAttempts = maxAttempts,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(vertical = 4.dp, horizontal = 4.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Clavier
+            GameKeyboard(
+                onKeyPress = { key -> viewModel.onKeyPressed(key) },
+                viewModel = viewModel,
+                gameOver = uiState.gameOver,
+                language = language,
+                currentGuessLength = uiState.currentGuess.length
+            )
+
+            // Bannière publicitaire
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(bottom = 8.dp)
+            ) {
+                BannerAdView(
+                    isLanguageScreen = false,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Stats accessibles manuellement pendant la partie
+            if (uiState.showStats) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    StatsDialog(
+                        won = uiState.won,
+                        gameOver = false,
+                        attempts = uiState.guesses.size,
+                        targetWord = uiState.targetWord,
+                        stats = uiState.stats,
+                        onDismiss = { viewModel.toggleStatsDialog(false) },
+                        language = language,
+                        gameStartTime = uiState.gameStartTime,
+                        gameEndTime = uiState.gameEndTime
+                    )
+                }
+            }
+        }
+
+        if (uiState.showRewardedAdDialog) {
+            RewardedAdChoiceDialog(
+                onWatchExtraTryAd = {
+                    viewModel.hideRewardedAdDialog()
+
+                    app.wordgame.ads.AdManager.showRewardedAdExtraTry(
+                        activity = context as Activity,
+                        onRewarded = {
+                            viewModel.addExtraTry()
+                        },
+                        onAdDismissed = {
+                            // Vidéo fermée sans la regarder
+                        }
+                    )
+                },
+                onDismiss = {
+                    // Cancel → Perdu
+                    viewModel.finishGameAsLost()
+                },
+                language = language
+            )
         }
     }
 }

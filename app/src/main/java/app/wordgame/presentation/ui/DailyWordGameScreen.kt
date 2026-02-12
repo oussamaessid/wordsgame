@@ -26,7 +26,6 @@ fun DailyWordGameScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Initialisation du jeu au changement de langue
     LaunchedEffect(language) {
         viewModel.initializeGame(language)
     }
@@ -86,7 +85,6 @@ fun DailyWordGameScreen(
                 .background(Color.White)
                 .systemBarsPadding()
         ) {
-            // Header
             GameHeader(
                 title = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "MOT DU JOUR" else "DAILY WORD",
                 subtitle = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "Aujourd'hui" else "Today",
@@ -97,20 +95,14 @@ fun DailyWordGameScreen(
                 language = language
             )
 
-            // Grille centrée
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                // Calculer le nombre maximum de lignes à afficher
-                // Normalement 5, mais si on a 5 guesses déjà et pas de dialogue = on peut en avoir 6
-                val maxAttempts = when {
-                    uiState.showRewardedAdDialog -> 5  // Dialogue affiché = 5 lignes
-                    uiState.guesses.size >= 5 -> 6     // 5+ tentatives = afficher 6 lignes
-                    else -> 5                           // Sinon = 5 lignes
-                }
+                // 6ème ligne visible UNIQUEMENT après avoir regardé la vidéo
+                val maxAttempts = if (uiState.hasExtraTry) 6 else 5
 
                 GameGrid(
                     currentGuess = uiState.currentGuess,
@@ -128,7 +120,6 @@ fun DailyWordGameScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Clavier
             GameKeyboard(
                 onKeyPress = { key -> viewModel.onKeyPressed(key) },
                 viewModel = viewModel,
@@ -137,7 +128,6 @@ fun DailyWordGameScreen(
                 currentGuessLength = uiState.currentGuess.length
             )
 
-            // Bannière publicitaire
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -150,7 +140,6 @@ fun DailyWordGameScreen(
                 )
             }
 
-            // Stats accessibles manuellement pendant la partie
             if (uiState.showStats) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     StatsDialog(
@@ -173,18 +162,29 @@ fun DailyWordGameScreen(
                 onWatchExtraTryAd = {
                     viewModel.hideRewardedAdDialog()
 
+                    // ✅ FLAG LOCAL : savoir si la récompense a été accordée
+                    // onRewarded et onAdDismissed sont TOUS LES DEUX appelés après une vidéo.
+                    // Sans ce flag, onAdDismissed écrase onRewarded et marque le joueur perdu.
+                    var wasRewarded = false
+
                     app.wordgame.ads.AdManager.showRewardedAdExtraTry(
                         activity = context as Activity,
                         onRewarded = {
+                            // Appelé quand la récompense est accordée
+                            wasRewarded = true
                             viewModel.addExtraTry()
                         },
                         onAdDismissed = {
-                            // Vidéo fermée sans la regarder
+                            // Toujours appelé à la fermeture de la vidéo.
+                            // Ne marquer perdu QUE si la récompense n'a pas été accordée.
+                            if (!wasRewarded) {
+                                viewModel.finishGameAsLost()
+                            }
                         }
                     )
                 },
                 onDismiss = {
-                    // Cancel → Perdu
+                    // Annuler le dialogue → perdu
                     viewModel.finishGameAsLost()
                 },
                 language = language

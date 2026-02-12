@@ -20,7 +20,8 @@ data class GameUiState(
     val isLoading: Boolean = true,
     val gameStartTime: Long = 0L,
     val gameEndTime: Long = 0L,
-    val showRewardedAdDialog: Boolean = false  // NOUVEAU
+    val showRewardedAdDialog: Boolean = false,
+    val hasExtraTry: Boolean = false
 )
 
 class GameViewModel(
@@ -36,7 +37,8 @@ class GameViewModel(
 
     companion object {
         const val WORD_LENGTH = 5
-        const val MAX_ATTEMPTS = 5  // 5 tentatives normales (pas 6)
+        const val MAX_ATTEMPTS = 5
+        const val MAX_ATTEMPTS_EXTRA = 6
     }
 
     private val _uiState = MutableStateFlow(GameUiState())
@@ -94,7 +96,6 @@ class GameViewModel(
             guess.forEachIndexed { index, char ->
                 val state = validation.letterStates.getOrNull(index) ?: _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
                 val key = char.uppercase()
-
                 val previous = map[key] ?: _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
 
                 when {
@@ -123,29 +124,30 @@ class GameViewModel(
 
         val result = validateGuessUseCase(state.currentGuess, state.targetWord)
         val newGuesses = state.guesses + result.guess
-        val won = result.isCorrect
 
+        // ✅ Mettre à jour guesses et clavier
         _uiState.value = state.copy(
             guesses = newGuesses,
             currentGuess = ""
         )
-
         updateKeyboardFromGuesses(listOf(state.currentGuess), state.targetWord)
 
-        // ⚠️ IMPORTANT: Vérifier la VICTOIRE en PREMIER
+        // ✅ VICTOIRE — toujours testé EN PREMIER, peu importe la ligne (1 à 6)
+        if (result.isCorrect) {
+            val endTime = System.currentTimeMillis()
+            _uiState.value = _uiState.value.copy(
+                won = true,
+                gameOver = true,
+                gameEndTime = endTime
+            )
+            handleGameOver(true)
+            return  // ← STOP, ne pas tomber dans les autres conditions
+        }
+
+        // ❌ Pas correct : vérifier si on a épuisé tous les essais
         when {
-            won -> {
-                // VICTOIRE (peut être à la ligne 1, 2, 3, 4, 5 ou 6) ✅
-                val endTime = System.currentTimeMillis()
-                _uiState.value = _uiState.value.copy(
-                    won = true,
-                    gameOver = true,
-                    gameEndTime = endTime
-                )
-                handleGameOver(true)
-            }
-            newGuesses.size > MAX_ATTEMPTS -> {
-                // PERDU APRÈS 6 ESSAIS (ligne bonus utilisée et incorrecte) ❌
+            // Essai bonus (ligne 6) utilisé et faux → perdu
+            state.hasExtraTry && newGuesses.size >= MAX_ATTEMPTS_EXTRA -> {
                 val endTime = System.currentTimeMillis()
                 _uiState.value = _uiState.value.copy(
                     gameOver = true,
@@ -154,17 +156,26 @@ class GameViewModel(
                 )
                 handleGameOver(false)
             }
-            newGuesses.size >= MAX_ATTEMPTS -> {
-                // PERDU APRÈS 5 ESSAIS → AFFICHER LE DIALOGUE (PAS gameOver encore) 🎁
-                _uiState.value = _uiState.value.copy(
-                    showRewardedAdDialog = true  // Juste le dialogue, pas gameOver
-                )
-                saveGameState()
+
+            // 5 essais normaux épuisés → proposer la vidéo
+            !state.hasExtraTry && newGuesses.size >= MAX_ATTEMPTS -> {
+                if (app.wordgame.ads.AdManager.isRewardedAdExtraTryAvailable()) {
+                    _uiState.value = _uiState.value.copy(showRewardedAdDialog = true)
+                    saveGameState()
+                } else {
+                    // Pas de pub disponible → perdu directement
+                    val endTime = System.currentTimeMillis()
+                    _uiState.value = _uiState.value.copy(
+                        gameOver = true,
+                        won = false,
+                        gameEndTime = endTime
+                    )
+                    handleGameOver(false)
+                }
             }
-            else -> {
-                // CONTINUER À JOUER (lignes 1, 2, 3, 4) ⏩
-                saveGameState()
-            }
+
+            // Continuer à jouer
+            else -> saveGameState()
         }
     }
 
@@ -192,38 +203,37 @@ class GameViewModel(
     }
 
     /**
-     * Ajouter un essai bonus après avoir regardé la vidéo
-     * AJOUTE physiquement une 6ème ligne vide
+     * Appelé quand l'utilisateur a regardé la vidéo jusqu'au bout.
+     * Débloque la 6ème ligne.
      */
     fun addExtraTry() {
-        val state = _uiState.value
-        if (state.guesses.size == MAX_ATTEMPTS && !state.gameOver) {
-            // AJOUTER une ligne vide pour la 6ème tentative
-            val emptyRow = ""  // Ligne vide de 5 caractères vides
-
-            _uiState.value = state.copy(
-                showRewardedAdDialog = false,
-                currentGuess = ""  // Réinitialiser la saisie en cours
-            )
-            // gameOver reste false, le joueur peut jouer la ligne 6
-            saveGameState()
-        }
+        _uiState.value = _uiState.value.copy(
+            showRewardedAdDialog = false,
+            hasExtraTry = true,
+            currentGuess = ""
+        )
+        saveGameState()
     }
 
     /**
-     * Terminer le jeu comme perdu (appelé quand l'utilisateur refuse la vidéo)
+     * Terminer le jeu comme perdu.
+     * ✅ PROTÉGÉ : ne fait rien si le jeu est déjà terminé (won ou gameOver).
+     * Cela évite que onAdDismissed écrase une victoire déjà enregistrée.
      */
     fun finishGameAsLost() {
         val state = _uiState.value
-        if (state.guesses.size == MAX_ATTEMPTS && !state.won) {
-            val endTime = System.currentTimeMillis()
-            _uiState.value = state.copy(
-                showRewardedAdDialog = false,
-                gameOver = true,
-                gameEndTime = endTime
-            )
-            handleGameOver(false)
-        }
+
+        // ✅ Ne rien faire si déjà gagné ou déjà game over
+        if (state.gameOver || state.won) return
+
+        val endTime = System.currentTimeMillis()
+        _uiState.value = state.copy(
+            showRewardedAdDialog = false,
+            gameOver = true,
+            won = false,
+            gameEndTime = endTime
+        )
+        handleGameOver(false)
     }
 
     fun toggleStatsDialog(show: Boolean) {

@@ -201,13 +201,6 @@ object AdManager {
         }
     }
 
-    // ============================================================================
-    // REWARDED ADS - VIDÉOS AVEC RÉCOMPENSE
-    // ============================================================================
-
-    /**
-     * Charger la vidéo avec récompense pour essai supplémentaire
-     */
     fun loadRewardedAdExtraTry(context: Context, onAdLoaded: () -> Unit = {}) {
         val adRequest = AdRequest.Builder().build()
 

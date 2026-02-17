@@ -32,8 +32,11 @@ class MainActivity : ComponentActivity() {
         // Charger TOUTES les annonces
         app.wordgame.ads.AdManager.loadAppOpenAd(this)
         app.wordgame.ads.AdManager.loadInterstitial(this)
-        app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)
-        app.wordgame.ads.AdManager.loadRewardedAdSolution(this)
+        app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)   // Charge aussi le fallback si échec
+        app.wordgame.ads.AdManager.loadRewardedAdSolution(this)    // Charge aussi le fallback si échec
+
+        // ✅ Charger le fallback interstitiel dès le démarrage (en plus des Rewarded)
+        app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this)
 
         appStartTime = System.currentTimeMillis()
 
@@ -67,7 +70,6 @@ class MainActivity : ComponentActivity() {
                         delay(60000) // Vérifier chaque minute
                         val currentTime = System.currentTimeMillis()
 
-                        // Afficher l'interstitiel toutes les 5 minutes
                         if (currentTime - lastInterstitialCheck >= 5 * 60 * 1000) {
                             if (app.wordgame.ads.AdManager.showInterstitialIfReady(this@MainActivity)) {
                                 lastInterstitialCheck = currentTime
@@ -99,6 +101,7 @@ class MainActivity : ComponentActivity() {
             app.wordgame.ads.AdManager.loadInterstitial(this@MainActivity)
             app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this@MainActivity)
             app.wordgame.ads.AdManager.loadRewardedAdSolution(this@MainActivity)
+            app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this@MainActivity)
         }
     }
 }

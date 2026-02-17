@@ -162,21 +162,15 @@ fun DailyWordGameScreen(
                 onWatchExtraTryAd = {
                     viewModel.hideRewardedAdDialog()
 
-                    // ✅ FLAG LOCAL : savoir si la récompense a été accordée
-                    // onRewarded et onAdDismissed sont TOUS LES DEUX appelés après une vidéo.
-                    // Sans ce flag, onAdDismissed écrase onRewarded et marque le joueur perdu.
                     var wasRewarded = false
 
                     app.wordgame.ads.AdManager.showRewardedAdExtraTry(
                         activity = context as Activity,
                         onRewarded = {
-                            // Appelé quand la récompense est accordée
                             wasRewarded = true
                             viewModel.addExtraTry()
                         },
                         onAdDismissed = {
-                            // Toujours appelé à la fermeture de la vidéo.
-                            // Ne marquer perdu QUE si la récompense n'a pas été accordée.
                             if (!wasRewarded) {
                                 viewModel.finishGameAsLost()
                             }
@@ -184,7 +178,6 @@ fun DailyWordGameScreen(
                     )
                 },
                 onDismiss = {
-                    // Annuler le dialogue → perdu
                     viewModel.finishGameAsLost()
                 },
                 language = language

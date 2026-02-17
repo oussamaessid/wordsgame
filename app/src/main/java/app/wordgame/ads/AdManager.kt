@@ -22,6 +22,9 @@ object AdManager {
     const val REWARDED_EXTRA_TRY_ID = "ca-app-pub-2498267529185476/2881272915"
     const val REWARDED_SOLUTION_ID = "ca-app-pub-2498267529185476/7307603089"
 
+    // ✅ Interstitiel 2 : Fallback si Rewarded non disponible (pour ligne 6)
+    const val INTERSTITIAL_REWARD_FALLBACK_ID = "ca-app-pub-2498267529185476/2506921717"
+
     // IDs de test
     const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
     const val TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
@@ -32,9 +35,13 @@ object AdManager {
     private var isTestMode = false
 
     private var interstitialAd: InterstitialAd? = null
+    private var interstitialRewardFallback: InterstitialAd? = null  // ✅ Fallback pour ligne 6
     private var appOpenAd: AppOpenAd? = null
     private var rewardedAdExtraTry: RewardedAd? = null
     private var rewardedAdSolution: RewardedAd? = null
+
+    private var isLoadingInterstitialFallback = false  // ✅ Éviter double chargement
+
     private var lastInterstitialTime = 0L
     private const val INTERSTITIAL_INTERVAL = 5 * 60 * 1000L // 5 minutes
 
@@ -43,11 +50,8 @@ object AdManager {
             Log.d(TAG, "AdMob initialized: ${initStatus.adapterStatusMap}")
         }
 
-        // Configuration pour les tests
         if (isTestMode) {
-            val testDeviceIds = listOf(
-                AdRequest.DEVICE_ID_EMULATOR,
-            )
+            val testDeviceIds = listOf(AdRequest.DEVICE_ID_EMULATOR)
             val configuration = RequestConfiguration.Builder()
                 .setTestDeviceIds(testDeviceIds)
                 .build()
@@ -60,28 +64,24 @@ object AdManager {
     }
 
     fun getBannerAdId(isLanguageScreen: Boolean): String {
-        return if (isTestMode) {
-            TEST_BANNER_ID
-        } else {
-            if (isLanguageScreen) BANNER_LANGUAGE_ID else BANNER_GAME_ID
-        }
+        return if (isTestMode) TEST_BANNER_ID
+        else if (isLanguageScreen) BANNER_LANGUAGE_ID else BANNER_GAME_ID
     }
 
-    fun getInterstitialAdId(): String {
-        return if (isTestMode) TEST_INTERSTITIAL_ID else INTERSTITIAL_ID
-    }
+    fun getInterstitialAdId(): String =
+        if (isTestMode) TEST_INTERSTITIAL_ID else INTERSTITIAL_ID
 
-    fun getAppOpenAdId(): String {
-        return if (isTestMode) TEST_APP_OPEN_ID else APP_OPEN_ID
-    }
+    fun getInterstitialRewardFallbackId(): String =        // ✅
+        if (isTestMode) TEST_INTERSTITIAL_ID else INTERSTITIAL_REWARD_FALLBACK_ID
 
-    fun getRewardedExtraTryId(): String {
-        return if (isTestMode) TEST_REWARDED_ID else REWARDED_EXTRA_TRY_ID
-    }
+    fun getAppOpenAdId(): String =
+        if (isTestMode) TEST_APP_OPEN_ID else APP_OPEN_ID
 
-    fun getRewardedSolutionId(): String {
-        return if (isTestMode) TEST_REWARDED_ID else REWARDED_SOLUTION_ID
-    }
+    fun getRewardedExtraTryId(): String =
+        if (isTestMode) TEST_REWARDED_ID else REWARDED_EXTRA_TRY_ID
+
+    fun getRewardedSolutionId(): String =
+        if (isTestMode) TEST_REWARDED_ID else REWARDED_SOLUTION_ID
 
     fun createBannerAd(context: Context, isLanguageScreen: Boolean): AdView {
         return AdView(context).apply {
@@ -100,30 +100,26 @@ object AdManager {
             adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
-                    Log.d(TAG, "Interstitial ad loaded")
+                    Log.d(TAG, "✅ Interstitial loaded")
                     interstitialAd = ad
                     onAdLoaded()
 
                     ad.fullScreenContentCallback = object : FullScreenContentCallback() {
                         override fun onAdDismissedFullScreenContent() {
-                            Log.d(TAG, "Interstitial ad dismissed")
                             interstitialAd = null
                             loadInterstitial(context)
                         }
-
                         override fun onAdFailedToShowFullScreenContent(error: AdError) {
                             Log.e(TAG, "Failed to show interstitial: ${error.message}")
                             interstitialAd = null
                         }
-
                         override fun onAdShowedFullScreenContent() {
-                            Log.d(TAG, "Interstitial ad shown")
+                            Log.d(TAG, "Interstitial shown")
                         }
                     }
                 }
-
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.e(TAG, "Failed to load interstitial: ${error.message}")
+                    Log.e(TAG, "❌ Failed to load interstitial: ${error.message}")
                     interstitialAd = null
                 }
             }
@@ -148,24 +144,81 @@ object AdManager {
             false
         }
     }
+    fun loadInterstitialRewardFallback(context: Context, onAdLoaded: () -> Unit = {}) {
+        if (isLoadingInterstitialFallback) return
+        isLoadingInterstitialFallback = true
+
+        InterstitialAd.load(
+            context,
+            getInterstitialRewardFallbackId(),
+            AdRequest.Builder().build(),
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    Log.d(TAG, "✅ Interstitiel FALLBACK ligne 6 chargé")
+                    interstitialRewardFallback = ad
+                    isLoadingInterstitialFallback = false
+                    onAdLoaded()
+                }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    Log.e(TAG, "❌ Échec Interstitiel FALLBACK: ${error.message}")
+                    interstitialRewardFallback = null
+                    isLoadingInterstitialFallback = false
+                }
+            }
+        )
+    }
+
+    private fun showInterstitialRewardFallback(
+        activity: Activity,
+        onRewarded: () -> Unit,
+        onAdDismissed: () -> Unit
+    ) {
+        val ad = interstitialRewardFallback
+
+        if (ad != null) {
+            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    Log.d(TAG, "✅ Interstitiel FALLBACK fermé → récompense accordée")
+                    interstitialRewardFallback = null
+                    // Récompense toujours donnée (même logique que Rewarded)
+                    onRewarded()
+                    onAdDismissed()
+                    // Recharger pour la prochaine utilisation
+                    loadInterstitialRewardFallback(activity)
+                }
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    Log.e(TAG, "❌ Échec affichage Interstitiel FALLBACK: ${error.message}")
+                    interstitialRewardFallback = null
+                    // En cas d'échec d'affichage, on donne quand même la récompense
+                    onRewarded()
+                    onAdDismissed()
+                }
+                override fun onAdShowedFullScreenContent() {
+                    Log.d(TAG, "✅ Interstitiel FALLBACK affiché")
+                }
+            }
+            ad.show(activity)
+        } else {
+            Log.d(TAG, "⏳ Interstitiel FALLBACK pas disponible")
+            // Aucune annonce disponible du tout → appeler onAdDismissed sans récompense
+            onAdDismissed()
+        }
+    }
 
     fun loadAppOpenAd(context: Context, onAdLoaded: () -> Unit = {}) {
-        val adRequest = AdRequest.Builder().build()
-
         AppOpenAd.load(
             context,
             getAppOpenAdId(),
-            adRequest,
+            AdRequest.Builder().build(),
             AppOpenAd.APP_OPEN_AD_ORIENTATION_PORTRAIT,
             object : AppOpenAd.AppOpenAdLoadCallback() {
                 override fun onAdLoaded(ad: AppOpenAd) {
-                    Log.d(TAG, "App open ad loaded")
+                    Log.d(TAG, "✅ App open ad loaded")
                     appOpenAd = ad
                     onAdLoaded()
                 }
-
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.e(TAG, "Failed to load app open ad: ${error.message}")
+                    Log.e(TAG, "❌ Failed to load app open ad: ${error.message}")
                     appOpenAd = null
                 }
             }
@@ -176,165 +229,160 @@ object AdManager {
         if (appOpenAd != null) {
             appOpenAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
-                    Log.d(TAG, "App open ad dismissed")
                     appOpenAd = null
                     onAdDismissed()
                     loadAppOpenAd(activity)
                 }
-
                 override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    Log.e(TAG, "Failed to show app open ad: ${error.message}")
                     appOpenAd = null
                     onAdDismissed()
                 }
-
                 override fun onAdShowedFullScreenContent() {
                     Log.d(TAG, "App open ad shown")
                 }
             }
-
             appOpenAd?.show(activity)
         } else {
-            Log.d(TAG, "App open ad not ready")
             onAdDismissed()
             loadAppOpenAd(activity)
         }
     }
 
     fun loadRewardedAdExtraTry(context: Context, onAdLoaded: () -> Unit = {}) {
-        val adRequest = AdRequest.Builder().build()
-
         RewardedAd.load(
             context,
             getRewardedExtraTryId(),
-            adRequest,
+            AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
-                    Log.d(TAG, "✅ Rewarded ad EXTRA TRY loaded")
+                    Log.d(TAG, "✅ Rewarded EXTRA TRY loaded")
                     rewardedAdExtraTry = ad
                     onAdLoaded()
                 }
-
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.e(TAG, "❌ Failed to load rewarded EXTRA TRY: ${error.message}")
+                    Log.e(TAG, "❌ Failed to load Rewarded EXTRA TRY: ${error.message}")
                     rewardedAdExtraTry = null
+                    // ✅ Charger le fallback automatiquement si Rewarded échoue
+                    Log.d(TAG, "🔄 Chargement Interstitiel FALLBACK en remplacement...")
+                    loadInterstitialRewardFallback(context)
                 }
             }
         )
     }
 
-    /**
-     * Charger la vidéo avec récompense pour révéler la solution
-     */
-    fun loadRewardedAdSolution(context: Context, onAdLoaded: () -> Unit = {}) {
-        val adRequest = AdRequest.Builder().build()
-
-        RewardedAd.load(
-            context,
-            getRewardedSolutionId(),
-            adRequest,
-            object : RewardedAdLoadCallback() {
-                override fun onAdLoaded(ad: RewardedAd) {
-                    Log.d(TAG, "✅ Rewarded ad SOLUTION loaded")
-                    rewardedAdSolution = ad
-                    onAdLoaded()
-                }
-
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.e(TAG, "❌ Failed to load rewarded SOLUTION: ${error.message}")
-                    rewardedAdSolution = null
-                }
-            }
-        )
-    }
-
-    /**
-     * Afficher la vidéo avec récompense pour essai supplémentaire
-     */
     fun showRewardedAdExtraTry(
         activity: Activity,
         onRewarded: () -> Unit,
         onAdDismissed: () -> Unit = {}
     ) {
-        if (rewardedAdExtraTry != null) {
-            rewardedAdExtraTry?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    Log.d(TAG, "✅ Rewarded EXTRA TRY dismissed")
-                    rewardedAdExtraTry = null
-                    onAdDismissed()
-                    loadRewardedAdExtraTry(activity)
+        when {
+            // Priorité 1 : Rewarded Ad
+            rewardedAdExtraTry != null -> {
+                Log.d(TAG, "📺 Affichage Rewarded EXTRA TRY")
+                rewardedAdExtraTry?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        Log.d(TAG, "✅ Rewarded EXTRA TRY fermée")
+                        rewardedAdExtraTry = null
+                        onAdDismissed()
+                        loadRewardedAdExtraTry(activity)
+                    }
+                    override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                        Log.e(TAG, "❌ Échec affichage Rewarded EXTRA TRY: ${error.message}")
+                        rewardedAdExtraTry = null
+                        onAdDismissed()
+                    }
+                    override fun onAdShowedFullScreenContent() {
+                        Log.d(TAG, "✅ Rewarded EXTRA TRY affichée")
+                    }
                 }
-
-                override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    Log.e(TAG, "❌ Failed to show rewarded EXTRA TRY: ${error.message}")
-                    rewardedAdExtraTry = null
-                    onAdDismissed()
-                }
-
-                override fun onAdShowedFullScreenContent() {
-                    Log.d(TAG, "✅ Rewarded EXTRA TRY shown")
+                rewardedAdExtraTry?.show(activity) { rewardItem ->
+                    Log.d(TAG, "🎁 Récompense EXTRA TRY: ${rewardItem.amount} ${rewardItem.type}")
+                    onRewarded()
                 }
             }
 
-            rewardedAdExtraTry?.show(activity) { rewardItem ->
-                Log.d(TAG, "🎁 User earned reward: ${rewardItem.amount} ${rewardItem.type}")
-                onRewarded()
+            interstitialRewardFallback != null -> {
+                Log.d(TAG, "📺 Rewarded non dispo → Interstitiel FALLBACK pour ligne 6")
+                showInterstitialRewardFallback(activity, onRewarded, onAdDismissed)
             }
-        } else {
-            Log.d(TAG, "⏳ Rewarded EXTRA TRY not ready")
-            onAdDismissed()
+
+            else -> {
+                Log.d(TAG, "⏳ Aucune annonce EXTRA TRY disponible")
+                onAdDismissed()
+            }
         }
     }
 
-    /**
-     * Afficher la vidéo avec récompense pour révéler la solution
-     */
+    fun loadRewardedAdSolution(context: Context, onAdLoaded: () -> Unit = {}) {
+        RewardedAd.load(
+            context,
+            getRewardedSolutionId(),
+            AdRequest.Builder().build(),
+            object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedAd) {
+                    Log.d(TAG, "✅ Rewarded SOLUTION loaded")
+                    rewardedAdSolution = ad
+                    onAdLoaded()
+                }
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    Log.e(TAG, "❌ Failed to load Rewarded SOLUTION: ${error.message}")
+                    rewardedAdSolution = null
+                    // ✅ Charger le fallback automatiquement si Rewarded échoue
+                    Log.d(TAG, "🔄 Chargement Interstitiel FALLBACK en remplacement...")
+                    loadInterstitialRewardFallback(context)
+                }
+            }
+        )
+    }
+
     fun showRewardedAdSolution(
         activity: Activity,
         onRewarded: () -> Unit,
         onAdDismissed: () -> Unit = {}
     ) {
-        if (rewardedAdSolution != null) {
-            rewardedAdSolution?.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    Log.d(TAG, "✅ Rewarded SOLUTION dismissed")
-                    rewardedAdSolution = null
-                    onAdDismissed()
-                    loadRewardedAdSolution(activity)
+        when {
+            // Priorité 1 : Rewarded Ad
+            rewardedAdSolution != null -> {
+                Log.d(TAG, "📺 Affichage Rewarded SOLUTION")
+                rewardedAdSolution?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        Log.d(TAG, "✅ Rewarded SOLUTION fermée")
+                        rewardedAdSolution = null
+                        onAdDismissed()
+                        loadRewardedAdSolution(activity)
+                    }
+                    override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                        Log.e(TAG, "❌ Échec affichage Rewarded SOLUTION: ${error.message}")
+                        rewardedAdSolution = null
+                        onAdDismissed()
+                    }
+                    override fun onAdShowedFullScreenContent() {
+                        Log.d(TAG, "✅ Rewarded SOLUTION affichée")
+                    }
                 }
-
-                override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    Log.e(TAG, "❌ Failed to show rewarded SOLUTION: ${error.message}")
-                    rewardedAdSolution = null
-                    onAdDismissed()
-                }
-
-                override fun onAdShowedFullScreenContent() {
-                    Log.d(TAG, "✅ Rewarded SOLUTION shown")
+                rewardedAdSolution?.show(activity) { rewardItem ->
+                    Log.d(TAG, "🎁 Récompense SOLUTION: ${rewardItem.amount} ${rewardItem.type}")
+                    onRewarded()
                 }
             }
 
-            rewardedAdSolution?.show(activity) { rewardItem ->
-                Log.d(TAG, "🎁 User earned reward: ${rewardItem.amount} ${rewardItem.type}")
-                onRewarded()
+            interstitialRewardFallback != null -> {
+                Log.d(TAG, "📺 Rewarded non dispo → Interstitiel FALLBACK pour Solution")
+                showInterstitialRewardFallback(activity, onRewarded, onAdDismissed)
             }
-        } else {
-            Log.d(TAG, "⏳ Rewarded SOLUTION not ready")
-            onAdDismissed()
+
+            else -> {
+                Log.d(TAG, "⏳ Aucune annonce SOLUTION disponible")
+                onAdDismissed()
+            }
         }
     }
 
-    /**
-     * Vérifier si la vidéo EXTRA TRY est disponible
-     */
     fun isRewardedAdExtraTryAvailable(): Boolean {
-        return rewardedAdExtraTry != null
+        return rewardedAdExtraTry != null || interstitialRewardFallback != null
     }
 
-    /**
-     * Vérifier si la vidéo SOLUTION est disponible
-     */
     fun isRewardedAdSolutionAvailable(): Boolean {
-        return rewardedAdSolution != null
+        return rewardedAdSolution != null || interstitialRewardFallback != null
     }
 }

@@ -1,6 +1,7 @@
 package app.wordgame.presentation.ui
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
@@ -24,6 +25,11 @@ fun DailyWordGameScreen(
     language: app.wordgame.domain.model.Language,
     onBackToLanguageSelection: () -> Unit
 ) {
+
+    BackHandler(enabled = true) {
+        onBackToLanguageSelection()
+    }
+
     val viewModel: app.wordgame.presentation.viewmodel.GameViewModel = viewModel(
         factory = _root_ide_package_.app.wordgame.di.AppContainer.provideViewModelFactory(),
         key = "game_vm_${language.name}"

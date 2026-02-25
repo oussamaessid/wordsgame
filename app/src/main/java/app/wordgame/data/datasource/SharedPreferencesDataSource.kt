@@ -60,4 +60,23 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
             maxStreak = prefs.getInt("maxStreak", 0)
         )
     }
+
+    override fun saveWordLists(englishWords: List<String>, frenchWords: List<String>) {
+        val prefs = context.getSharedPreferences("WordGame_WordLists", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("english_words", englishWords.joinToString(","))
+            putString("french_words", frenchWords.joinToString(","))
+            apply()
+        }
+    }
+
+    override fun loadWordLists(): Pair<List<String>, List<String>>? {
+        val prefs = context.getSharedPreferences("WordGame_WordLists", Context.MODE_PRIVATE)
+        val english = prefs.getString("english_words", null) ?: return null
+        val french = prefs.getString("french_words", null) ?: return null
+        return Pair(
+            english.split(",").filter { it.isNotEmpty() },
+            french.split(",").filter { it.isNotEmpty() }
+        )
+    }
 }

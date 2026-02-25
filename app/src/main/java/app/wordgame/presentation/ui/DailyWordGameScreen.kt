@@ -3,14 +3,20 @@ package app.wordgame.presentation.ui
 import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
@@ -38,6 +44,62 @@ fun DailyWordGameScreen(
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(color = Color(0xFF1976D2))
+        }
+        return
+    }
+
+    if (uiState.noInternetError) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Text(text = "📡", fontSize = 64.sp)
+                Text(
+                    text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                        "Pas de connexion internet"
+                    else "No internet connection",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF333333),
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                        "Une connexion est nécessaire pour\nrécupérer le mot du jour."
+                    else "A connection is required\nto get today's word.",
+                    fontSize = 15.sp,
+                    color = Color(0xFF888888),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { viewModel.initializeGame(language) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                ) {
+                    Text(
+                        text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                            "Réessayer" else "Retry",
+                        color = Color.White
+                    )
+                }
+                Button(
+                    onClick = onBackToLanguageSelection,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCCCCCC))
+                ) {
+                    Text(
+                        text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                            "Retour" else "Back",
+                        color = Color(0xFF333333)
+                    )
+                }
+            }
         }
         return
     }
@@ -70,7 +132,7 @@ fun DailyWordGameScreen(
         screenHeight < 600 -> 38.dp
         screenHeight < 700 -> 45.dp
         screenHeight < 800 -> 52.dp
-        else -> 56.dp
+        else -> 52.dp
     }
     val cellSpacing = when {
         screenHeight < 600 -> 4.dp
@@ -95,21 +157,30 @@ fun DailyWordGameScreen(
                 language = language
             )
 
-            Box(
+            val maxAttempts = if (uiState.hasExtraTry) 6 else 5
+
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                // 6ème ligne visible UNIQUEMENT après avoir regardé la vidéo
-                val maxAttempts = if (uiState.hasExtraTry) 6 else 5
+                val availableHeight = maxHeight
+                val spacing = cellSpacing
+                val totalSpacing = spacing * (maxAttempts - 1)
+                val padding = 32.dp
+
+                val finalCellSize = minOf(
+                    cellSize,
+                    (availableHeight - totalSpacing - padding) / maxAttempts
+                )
 
                 GameGrid(
                     currentGuess = uiState.currentGuess,
                     guesses = uiState.guesses,
                     viewModel = viewModel,
-                    cellSize = cellSize,
-                    cellSpacing = cellSpacing,
+                    cellSize = finalCellSize,
+                    cellSpacing = spacing,
                     maxAttempts = maxAttempts,
                     modifier = Modifier
                         .fillMaxWidth()

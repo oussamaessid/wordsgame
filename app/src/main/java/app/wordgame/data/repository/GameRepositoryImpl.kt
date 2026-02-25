@@ -20,32 +20,45 @@ class GameRepositoryImpl(
 
     suspend fun loadWordsFromUrl(
         url: String = "https://raw.githubusercontent.com/oussamaessid/WordsData/refs/heads/main/words.json"
-    ) {
-        withContext(Dispatchers.IO) {
+    ): Boolean {
+        return withContext(Dispatchers.IO) {
+            // ✅ Étape 1 : Essayer de télécharger depuis internet
             try {
                 val jsonText = URL(url).readText()
                 val json = JSONObject(jsonText)
 
-                englishWords = List(json.getJSONArray("english").length()) { i ->
+                val newEnglish = List(json.getJSONArray("english").length()) { i ->
                     json.getJSONArray("english").getString(i).uppercase(Locale.getDefault())
                 }
-
-                frenchWords = List(json.getJSONArray("french").length()) { i ->
+                val newFrench = List(json.getJSONArray("french").length()) { i ->
                     json.getJSONArray("french").getString(i).uppercase(Locale.getDefault())
                 }
 
+                englishWords = newEnglish
+                frenchWords = newFrench
+
+                // ✅ Sauvegarder en cache pour utilisation hors ligne
+                localDataSource.saveWordLists(englishWords, frenchWords)
+
+                true // ✅ Succès internet
+
             } catch (e: Exception) {
                 e.printStackTrace()
-                // fallback si erreur → mot bidon
-                englishWords = listOf("APPLE")
-                frenchWords = listOf("TABLE")
+
+                // ✅ Étape 2 : Pas d'internet → essayer le cache local
+                val cached = localDataSource.loadWordLists()
+                if (cached != null && cached.first.isNotEmpty() && cached.second.isNotEmpty()) {
+                    englishWords = cached.first
+                    frenchWords = cached.second
+                    true // ✅ Succès via cache
+                } else {
+                    // ❌ Pas d'internet ET pas de cache → impossible de jouer
+                    false
+                }
             }
         }
     }
 
-    // ===============================
-    // GameRepository overrides
-    // ===============================
     override suspend fun saveGameState(state: app.wordgame.domain.model.GameState, language: app.wordgame.domain.model.Language) {
         localDataSource.saveGameState(state, language)
     }

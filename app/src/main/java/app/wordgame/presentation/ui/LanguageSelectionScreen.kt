@@ -122,7 +122,6 @@ fun LanguageSelectionScreen(onLanguageSelected: (app.wordgame.domain.model.Langu
             }
         }
 
-        // Bannière publicitaire en bas
         BannerAdView(
             isLanguageScreen = true,
             modifier = Modifier.fillMaxWidth()

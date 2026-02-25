@@ -75,7 +75,6 @@ fun GameHeader(
                     )
                 }
 
-                // Titre
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.weight(1f)
@@ -89,7 +88,6 @@ fun GameHeader(
                     )
                 }
 
-                // Bouton statistiques
                 IconButton(
                     onClick = onStatsClick,
                     modifier = Modifier.size(if (isSmallScreen) 40.dp else 48.dp),
@@ -104,8 +102,6 @@ fun GameHeader(
                     )
                 }
             }
-
-            // ✅ Date formatée centrée
             Text(
                 text = currentDate,
                 fontSize = if (isSmallScreen) 10.sp else 12.sp,
@@ -137,7 +133,7 @@ fun GameGrid(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
             Column(

@@ -5,4 +5,6 @@ interface LocalDataSource {
     suspend fun loadGameState(language: app.wordgame.domain.model.Language): app.wordgame.domain.model.GameState?
     suspend fun saveStats(stats: app.wordgame.domain.model.GameStats, language: app.wordgame.domain.model.Language)
     suspend fun loadStats(language: app.wordgame.domain.model.Language): app.wordgame.domain.model.GameStats
+    fun saveWordLists(englishWords: List<String>, frenchWords: List<String>)
+    fun loadWordLists(): Pair<List<String>, List<String>>?
 }

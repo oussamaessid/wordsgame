@@ -21,7 +21,8 @@ data class GameUiState(
     val gameStartTime: Long = 0L,
     val gameEndTime: Long = 0L,
     val showRewardedAdDialog: Boolean = false,
-    val hasExtraTry: Boolean = false
+    val hasExtraTry: Boolean = false,
+    val noInternetError: Boolean = false
 )
 
 class GameViewModel(
@@ -34,7 +35,6 @@ class GameViewModel(
     private val updateStatsUseCase: app.wordgame.domain.usecase.UpdateStatsUseCase,
     private val repository: app.wordgame.data.repository.GameRepositoryImpl
 ) : ViewModel() {
-
     companion object {
         const val WORD_LENGTH = 5
         const val MAX_ATTEMPTS = 5
@@ -52,10 +52,19 @@ class GameViewModel(
         keyboardStates.putIfAbsent(language, mutableMapOf())
 
         viewModelScope.launch {
-            repository.loadWordsFromUrl()
+            // ✅ Tente internet → sinon cache → sinon erreur
+            val success = repository.loadWordsFromUrl()
+
+            if (!success) {
+                _uiState.value = GameUiState(
+                    isLoading = false,
+                    noInternetError = true
+                )
+                return@launch
+            }
 
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-            val targetWord = getDailyWordUseCase(language, today).takeIf { it.isNotEmpty() } ?: "ABCDE"
+            val targetWord = getDailyWordUseCase(language, today)
 
             val savedState = loadGameStateUseCase(language, today)
             val stats = loadStatsUseCase(language)

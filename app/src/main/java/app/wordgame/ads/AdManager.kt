@@ -13,7 +13,6 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 object AdManager {
     private const val TAG = "AdManager"
 
-    // IDs de production
     const val APP_ID = "ca-app-pub-2498267529185476~7471990700"
     const val BANNER_LANGUAGE_ID = "ca-app-pub-2498267529185476/6158909031"
     const val BANNER_GAME_ID = "ca-app-pub-2498267529185476/3888076711"
@@ -22,7 +21,6 @@ object AdManager {
     const val REWARDED_EXTRA_TRY_ID = "ca-app-pub-2498267529185476/2881272915"
     const val REWARDED_SOLUTION_ID = "ca-app-pub-2498267529185476/7307603089"
 
-    // ✅ Interstitiel 2 : Fallback si Rewarded non disponible (pour ligne 6)
     const val INTERSTITIAL_REWARD_FALLBACK_ID = "ca-app-pub-2498267529185476/2506921717"
 
     // IDs de test

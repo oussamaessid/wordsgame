@@ -134,15 +134,15 @@ fun StatsDialog(
                     lineHeight = (titleFontSize.value + 4).sp
                 )
 
-                // ── Mot correct (si défaite) ─────────────────────────────────
-                if (!won && targetWord.isNotBlank()) {
-                    Text(
-                        text = "${translations["correct_word"]!!} : ${targetWord.uppercase()}",
-                        fontSize = if (isVerySmall) 13.sp else 15.sp,
-                        color = Color(0xFF757575),
-                        textAlign = TextAlign.Center
-                    )
-                }
+//                // ── Mot correct (si défaite) ─────────────────────────────────
+//                if (!won && targetWord.isNotBlank()) {
+//                    Text(
+//                        text = "${translations["correct_word"]!!} : ${targetWord.uppercase()}",
+//                        fontSize = if (isVerySmall) 13.sp else 15.sp,
+//                        color = Color(0xFF757575),
+//                        textAlign = TextAlign.Center
+//                    )
+//                }
 
                 if (gameOver && gameStartTime > 0 && gameEndTime > 0) {
                     Box(

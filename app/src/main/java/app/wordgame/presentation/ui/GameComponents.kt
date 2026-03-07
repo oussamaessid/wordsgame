@@ -44,7 +44,7 @@ fun GameHeader(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp),
+            .padding(bottom = 4.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -179,10 +179,6 @@ fun GameGrid(
     }
 }
 
-// ============================================================================
-// LETTER CELL COMPONENT
-// ============================================================================
-
 @Composable
 fun LetterCell(letter: String, state: app.wordgame.domain.model.LetterState, size: Dp) {
     val backgroundColor = when (state) {
@@ -229,9 +225,9 @@ fun GameKeyboard(
 ) {
     val layout = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) {
         listOf(
-            listOf("A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"),
-            listOf("Q", "S", "D", "F", "G", "H", "J", "K", "L", "M"),
-            listOf("W", "X", "C", "V", "B", "N")
+            listOf("A","Z","E","R","T","Y","U","I","O","P"),
+            listOf("Q","S","D","F","G","H","J","K","L","M"),
+            listOf("W","X","C","V","B","N","Ç","É","È")
         )
     } else {
         listOf(
@@ -280,7 +276,6 @@ fun GameKeyboard(
                 }
             }
 
-            // Bouton Valider / Verify
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
@@ -291,8 +286,8 @@ fun GameKeyboard(
                     onClick = { onKeyPress("ENTER") },
                     enabled = isEnabled,
                     modifier = Modifier
-                        .fillMaxWidth(0.65f)
-                        .height(52.dp),
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isEnabled) Color(0xFF1976D2) else Color(0xFFBBBBBB),

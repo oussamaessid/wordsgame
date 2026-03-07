@@ -286,8 +286,8 @@ fun GameKeyboard(
                     onClick = { onKeyPress("ENTER") },
                     enabled = isEnabled,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 48.dp),
+                        .fillMaxWidth(0.65f)
+                        .height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isEnabled) Color(0xFF1976D2) else Color(0xFFBBBBBB),

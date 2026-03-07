@@ -14,16 +14,19 @@ data class GameUiState(
     val guesses: List<String> = emptyList(),
     val gameOver: Boolean = false,
     val won: Boolean = false,
-    val stats: app.wordgame.domain.model.GameStats = _root_ide_package_.app.wordgame.domain.model.GameStats(),
+    val stats: app.wordgame.domain.model.GameStats = app.wordgame.domain.model.GameStats(),
     val showStats: Boolean = false,
     val targetWord: String = "",
     val isLoading: Boolean = true,
     val gameStartTime: Long = 0L,
     val gameEndTime: Long = 0L,
     val showRewardedAdDialog: Boolean = false,
-    val hasExtraTry: Boolean = false,
+    val extraTriesGranted: Int = 0,   // 0 = aucun, 1 = une ligne bonus, 2 = deux lignes bonus
     val noInternetError: Boolean = false
-)
+) {
+    /** Nombre total de lignes visibles dans la grille (4, 5 ou 6) */
+    val maxAttempts: Int get() = GameViewModel.BASE_ATTEMPTS + extraTriesGranted
+}
 
 class GameViewModel(
     private val getDailyWordUseCase: app.wordgame.domain.usecase.GetDailyWordUseCase,
@@ -35,41 +38,48 @@ class GameViewModel(
     private val updateStatsUseCase: app.wordgame.domain.usecase.UpdateStatsUseCase,
     private val repository: app.wordgame.data.repository.GameRepositoryImpl
 ) : ViewModel() {
+
     companion object {
         const val WORD_LENGTH = 5
-        const val MAX_ATTEMPTS = 5
-        const val MAX_ATTEMPTS_EXTRA = 6
+        const val BASE_ATTEMPTS = 4        // Essais de base
+        const val MAX_EXTRA_TRIES = 2      // Maximum de lignes bonus (via vidéos)
+        const val MAX_TOTAL_ATTEMPTS = BASE_ATTEMPTS + MAX_EXTRA_TRIES  // = 6
     }
 
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
-    private var currentLanguage: app.wordgame.domain.model.Language = _root_ide_package_.app.wordgame.domain.model.Language.ENGLISH
-    private val keyboardStates = mutableMapOf<app.wordgame.domain.model.Language, MutableMap<String, app.wordgame.domain.model.LetterState>>()
+    private var currentLanguage: app.wordgame.domain.model.Language =
+        app.wordgame.domain.model.Language.ENGLISH
+    private val keyboardStates =
+        mutableMapOf<app.wordgame.domain.model.Language,
+                MutableMap<String, app.wordgame.domain.model.LetterState>>()
+
+    // ─────────────────────────────────────────────
+    //  INITIALISATION
+    // ─────────────────────────────────────────────
 
     fun initializeGame(language: app.wordgame.domain.model.Language) {
         currentLanguage = language
         keyboardStates.putIfAbsent(language, mutableMapOf())
 
         viewModelScope.launch {
-            // ✅ Tente internet → sinon cache → sinon erreur
             val success = repository.loadWordsFromUrl()
 
             if (!success) {
-                _uiState.value = GameUiState(
-                    isLoading = false,
-                    noInternetError = true
-                )
+                _uiState.value = GameUiState(isLoading = false, noInternetError = true)
                 return@launch
             }
 
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             val targetWord = getDailyWordUseCase(language, today)
-
             val savedState = loadGameStateUseCase(language, today)
             val stats = loadStatsUseCase(language)
 
-            if (savedState != null && savedState.word == targetWord && savedState.date == today) {
+            if (savedState != null &&
+                savedState.word == targetWord &&
+                savedState.date == today
+            ) {
                 _uiState.value = GameUiState(
                     guesses = savedState.guesses,
                     gameOver = savedState.gameOver,
@@ -79,7 +89,8 @@ class GameViewModel(
                     showStats = savedState.gameOver,
                     isLoading = false,
                     gameStartTime = savedState.gameStartTime,
-                    gameEndTime = savedState.gameEndTime
+                    gameEndTime = savedState.gameEndTime,
+                    extraTriesGranted = savedState.extraTriesGranted
                 )
                 updateKeyboardFromGuesses(savedState.guesses, targetWord)
             } else {
@@ -95,96 +106,25 @@ class GameViewModel(
         }
     }
 
-    private fun updateKeyboardFromGuesses(guesses: List<String>, targetWord: String) {
-        val map = keyboardStates[currentLanguage] ?: return
-
-        guesses.forEach { guess ->
-            if (guess.length != WORD_LENGTH) return@forEach
-
-            val validation = validateGuessUseCase(guess, targetWord)
-            guess.forEachIndexed { index, char ->
-                val state = validation.letterStates.getOrNull(index) ?: _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
-                val key = char.uppercase()
-                val previous = map[key] ?: _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
-
-                when {
-                    state == _root_ide_package_.app.wordgame.domain.model.LetterState.CORRECT -> map[key] = _root_ide_package_.app.wordgame.domain.model.LetterState.CORRECT
-                    state == _root_ide_package_.app.wordgame.domain.model.LetterState.PRESENT && previous != _root_ide_package_.app.wordgame.domain.model.LetterState.CORRECT -> map[key] = _root_ide_package_.app.wordgame.domain.model.LetterState.PRESENT
-                    previous == _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY -> map[key] = _root_ide_package_.app.wordgame.domain.model.LetterState.WRONG
-                }
-            }
-        }
-    }
+    // ─────────────────────────────────────────────
+    //  CLAVIER
+    // ─────────────────────────────────────────────
 
     fun onKeyPressed(key: String) {
         val state = _uiState.value
         if (state.gameOver) return
 
         when (key.uppercase()) {
-            "ENTER" -> handleEnter()
-            "⌫", "BACKSPACE" -> handleDelete()
-            else -> if (key.length == 1 && key[0].isLetter()) handleLetterInput(key.uppercase())
+            "ENTER"            -> handleEnter()
+            "⌫", "BACKSPACE"  -> handleDelete()
+            else               -> if (key.length == 1 && key[0].isLetter()) handleLetterInput(key.uppercase())
         }
     }
 
-    private fun handleEnter() {
+    private fun handleLetterInput(letter: String) {
         val state = _uiState.value
-        if (state.currentGuess.length != WORD_LENGTH) return
-
-        val result = validateGuessUseCase(state.currentGuess, state.targetWord)
-        val newGuesses = state.guesses + result.guess
-
-        // ✅ Mettre à jour guesses et clavier
-        _uiState.value = state.copy(
-            guesses = newGuesses,
-            currentGuess = ""
-        )
-        updateKeyboardFromGuesses(listOf(state.currentGuess), state.targetWord)
-
-        // ✅ VICTOIRE — toujours testé EN PREMIER, peu importe la ligne (1 à 6)
-        if (result.isCorrect) {
-            val endTime = System.currentTimeMillis()
-            _uiState.value = _uiState.value.copy(
-                won = true,
-                gameOver = true,
-                gameEndTime = endTime
-            )
-            handleGameOver(true)
-            return  // ← STOP, ne pas tomber dans les autres conditions
-        }
-
-        // ❌ Pas correct : vérifier si on a épuisé tous les essais
-        when {
-            // Essai bonus (ligne 6) utilisé et faux → perdu
-            state.hasExtraTry && newGuesses.size >= MAX_ATTEMPTS_EXTRA -> {
-                val endTime = System.currentTimeMillis()
-                _uiState.value = _uiState.value.copy(
-                    gameOver = true,
-                    won = false,
-                    gameEndTime = endTime
-                )
-                handleGameOver(false)
-            }
-
-            // 5 essais normaux épuisés → proposer la vidéo
-            !state.hasExtraTry && newGuesses.size >= MAX_ATTEMPTS -> {
-                if (app.wordgame.ads.AdManager.isRewardedAdExtraTryAvailable()) {
-                    _uiState.value = _uiState.value.copy(showRewardedAdDialog = true)
-                    saveGameState()
-                } else {
-                    // Pas de pub disponible → perdu directement
-                    val endTime = System.currentTimeMillis()
-                    _uiState.value = _uiState.value.copy(
-                        gameOver = true,
-                        won = false,
-                        gameEndTime = endTime
-                    )
-                    handleGameOver(false)
-                }
-            }
-
-            // Continuer à jouer
-            else -> saveGameState()
+        if (state.currentGuess.length < WORD_LENGTH) {
+            _uiState.value = state.copy(currentGuess = state.currentGuess + letter)
         }
     }
 
@@ -195,11 +135,71 @@ class GameViewModel(
         }
     }
 
-    private fun handleLetterInput(letter: String) {
+    // ─────────────────────────────────────────────
+    //  VALIDATION D'UN ESSAI
+    // ─────────────────────────────────────────────
+
+    private fun handleEnter() {
         val state = _uiState.value
-        if (state.currentGuess.length < WORD_LENGTH) {
-            _uiState.value = state.copy(currentGuess = state.currentGuess + letter)
+        if (state.currentGuess.length != WORD_LENGTH) return
+
+        val result = validateGuessUseCase(state.currentGuess, state.targetWord)
+        val newGuesses = state.guesses + result.guess
+
+        // Mise à jour immédiate : ajout de la ligne + reset de la saisie
+        _uiState.value = state.copy(guesses = newGuesses, currentGuess = "")
+        updateKeyboardFromGuesses(listOf(state.currentGuess), state.targetWord)
+
+        // ✅ VICTOIRE — priorité absolue
+        if (result.isCorrect) {
+            val endTime = System.currentTimeMillis()
+            _uiState.value = _uiState.value.copy(
+                won = true,
+                gameOver = true,
+                gameEndTime = endTime
+            )
+            handleGameOver(true)
+            return
         }
+
+        // ❌ Mauvaise réponse — décision selon le nombre d'essais
+        val triesUsed = newGuesses.size
+        val currentExtra = state.extraTriesGranted
+
+        when {
+            // Toutes les lignes épuisées (y compris les deux bonus) → perdu
+            triesUsed >= MAX_TOTAL_ATTEMPTS -> {
+                finishLost()
+            }
+
+            // Essais de base épuisés ET pas encore de 1er bonus → proposer vidéo
+            triesUsed >= BASE_ATTEMPTS + currentExtra && currentExtra < MAX_EXTRA_TRIES -> {
+                if (app.wordgame.ads.AdManager.isRewardedAdExtraTryAvailable()) {
+                    _uiState.value = _uiState.value.copy(showRewardedAdDialog = true)
+                    saveGameState()
+                } else {
+                    // Pas de pub disponible → perdu directement
+                    finishLost()
+                }
+            }
+
+            // Continuer à jouer
+            else -> saveGameState()
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    //  FIN DE PARTIE
+    // ─────────────────────────────────────────────
+
+    private fun finishLost() {
+        val endTime = System.currentTimeMillis()
+        _uiState.value = _uiState.value.copy(
+            gameOver = true,
+            won = false,
+            gameEndTime = endTime
+        )
+        handleGameOver(false)
     }
 
     private fun handleGameOver(won: Boolean) {
@@ -211,75 +211,116 @@ class GameViewModel(
         }
     }
 
+    // ─────────────────────────────────────────────
+    //  GESTION DES ESSAIS BONUS (VIDÉOS)
+    // ─────────────────────────────────────────────
+
     /**
-     * Appelé quand l'utilisateur a regardé la vidéo jusqu'au bout.
-     * Débloque la 6ème ligne.
+     * Appelé après qu'une vidéo a été regardée jusqu'au bout.
+     * Débloque UNE ligne supplémentaire (max 2 fois).
      */
     fun addExtraTry() {
-        _uiState.value = _uiState.value.copy(
+        val state = _uiState.value
+        if (state.extraTriesGranted >= MAX_EXTRA_TRIES) return   // sécurité
+
+        _uiState.value = state.copy(
             showRewardedAdDialog = false,
-            hasExtraTry = true,
+            extraTriesGranted = state.extraTriesGranted + 1,
             currentGuess = ""
         )
         saveGameState()
     }
 
     /**
-     * Terminer le jeu comme perdu.
-     * ✅ PROTÉGÉ : ne fait rien si le jeu est déjà terminé (won ou gameOver).
-     * Cela évite que onAdDismissed écrase une victoire déjà enregistrée.
+     * L'utilisateur a fermé la pub sans la regarder → partie perdue.
+     * Protégé : ne fait rien si la partie est déjà terminée.
      */
     fun finishGameAsLost() {
         val state = _uiState.value
-
-        // ✅ Ne rien faire si déjà gagné ou déjà game over
         if (state.gameOver || state.won) return
 
-        val endTime = System.currentTimeMillis()
-        _uiState.value = state.copy(
-            showRewardedAdDialog = false,
-            gameOver = true,
-            won = false,
-            gameEndTime = endTime
-        )
-        handleGameOver(false)
-    }
-
-    fun toggleStatsDialog(show: Boolean) {
-        _uiState.value = _uiState.value.copy(showStats = show)
+        _uiState.value = state.copy(showRewardedAdDialog = false)
+        finishLost()
     }
 
     fun hideRewardedAdDialog() {
         _uiState.value = _uiState.value.copy(showRewardedAdDialog = false)
     }
 
+    fun toggleStatsDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showStats = show)
+    }
+
+    // ─────────────────────────────────────────────
+    //  CLAVIER — ÉTATS DES LETTRES
+    // ─────────────────────────────────────────────
+
+    private fun updateKeyboardFromGuesses(guesses: List<String>, targetWord: String) {
+        val map = keyboardStates[currentLanguage] ?: return
+
+        guesses.forEach { guess ->
+            if (guess.length != WORD_LENGTH) return@forEach
+
+            val validation = validateGuessUseCase(guess, targetWord)
+            guess.forEachIndexed { index, char ->
+                val state = validation.letterStates.getOrNull(index)
+                    ?: app.wordgame.domain.model.LetterState.EMPTY
+                val key = char.uppercase()
+                val previous = map[key] ?: app.wordgame.domain.model.LetterState.EMPTY
+
+                when {
+                    state == app.wordgame.domain.model.LetterState.CORRECT ->
+                        map[key] = app.wordgame.domain.model.LetterState.CORRECT
+
+                    state == app.wordgame.domain.model.LetterState.PRESENT &&
+                            previous != app.wordgame.domain.model.LetterState.CORRECT ->
+                        map[key] = app.wordgame.domain.model.LetterState.PRESENT
+
+                    previous == app.wordgame.domain.model.LetterState.EMPTY ->
+                        map[key] = app.wordgame.domain.model.LetterState.WRONG
+                }
+            }
+        }
+    }
+
+    fun getLetterState(
+        letter: Char,
+        position: Int,
+        guessIndex: Int
+    ): app.wordgame.domain.model.LetterState {
+        val state = _uiState.value
+        if (guessIndex >= state.guesses.size) return app.wordgame.domain.model.LetterState.EMPTY
+
+        val guess = state.guesses[guessIndex]
+        val result = validateGuessUseCase(guess, state.targetWord)
+        return result.letterStates.getOrNull(position)
+            ?: app.wordgame.domain.model.LetterState.EMPTY
+    }
+
+    fun getKeyState(key: String): app.wordgame.domain.model.LetterState {
+        if (key.length != 1) return app.wordgame.domain.model.LetterState.EMPTY
+        return keyboardStates[currentLanguage]?.get(key.uppercase())
+            ?: app.wordgame.domain.model.LetterState.EMPTY
+    }
+
+    // ─────────────────────────────────────────────
+    //  SAUVEGARDE
+    // ─────────────────────────────────────────────
+
     private fun saveGameState() {
         viewModelScope.launch {
             val s = _uiState.value
-            val gs = _root_ide_package_.app.wordgame.domain.model.GameState(
+            val gs = app.wordgame.domain.model.GameState(
                 date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
                 word = s.targetWord,
                 guesses = s.guesses,
                 gameOver = s.gameOver,
                 won = s.won,
                 gameStartTime = s.gameStartTime,
-                gameEndTime = s.gameEndTime
+                gameEndTime = s.gameEndTime,
+                extraTriesGranted = s.extraTriesGranted   // ← persisté
             )
             saveGameStateUseCase(gs, currentLanguage)
         }
-    }
-
-    fun getLetterState(letter: Char, position: Int, guessIndex: Int): app.wordgame.domain.model.LetterState {
-        val state = _uiState.value
-        if (guessIndex >= state.guesses.size) return _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
-
-        val guess = state.guesses[guessIndex]
-        val result = validateGuessUseCase(guess, state.targetWord)
-        return result.letterStates.getOrNull(position) ?: _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
-    }
-
-    fun getKeyState(key: String): app.wordgame.domain.model.LetterState {
-        if (key.length != 1) return _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
-        return keyboardStates[currentLanguage]?.get(key.uppercase()) ?: _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
     }
 }

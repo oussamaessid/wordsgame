@@ -31,7 +31,7 @@ fun DailyWordGameScreen(
     }
 
     val viewModel: app.wordgame.presentation.viewmodel.GameViewModel = viewModel(
-        factory = _root_ide_package_.app.wordgame.di.AppContainer.provideViewModelFactory(),
+        factory = app.wordgame.di.AppContainer.provideViewModelFactory(),
         key = "game_vm_${language.name}"
     )
 
@@ -68,7 +68,7 @@ fun DailyWordGameScreen(
             ) {
                 Text(text = "📡", fontSize = 64.sp)
                 Text(
-                    text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                    text = if (language == app.wordgame.domain.model.Language.FRENCH)
                         "Pas de connexion internet"
                     else "No internet connection",
                     fontSize = 20.sp,
@@ -77,7 +77,7 @@ fun DailyWordGameScreen(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                    text = if (language == app.wordgame.domain.model.Language.FRENCH)
                         "Une connexion est nécessaire pour\nrécupérer le mot du jour."
                     else "A connection is required\nto get today's word.",
                     fontSize = 15.sp,
@@ -90,7 +90,7 @@ fun DailyWordGameScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
                 ) {
                     Text(
-                        text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                        text = if (language == app.wordgame.domain.model.Language.FRENCH)
                             "Réessayer" else "Retry",
                         color = Color.White
                     )
@@ -100,7 +100,7 @@ fun DailyWordGameScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCCCCCC))
                 ) {
                     Text(
-                        text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH)
+                        text = if (language == app.wordgame.domain.model.Language.FRENCH)
                             "Retour" else "Back",
                         color = Color(0xFF333333)
                     )
@@ -154,16 +154,17 @@ fun DailyWordGameScreen(
                 .systemBarsPadding()
         ) {
             GameHeader(
-                title = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "MOT DU JOUR" else "DAILY WORD",
-                subtitle = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "Aujourd'hui" else "Today",
-                backButtonText = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "Retour" else "Back",
+                title = if (language == app.wordgame.domain.model.Language.FRENCH) "MOT DU JOUR" else "DAILY WORD",
+                subtitle = if (language == app.wordgame.domain.model.Language.FRENCH) "Aujourd'hui" else "Today",
+                backButtonText = if (language == app.wordgame.domain.model.Language.FRENCH) "Retour" else "Back",
                 onBackClick = onBackToLanguageSelection,
                 onStatsClick = { viewModel.toggleStatsDialog(true) },
                 isSmallScreen = isSmallScreen,
                 language = language
             )
 
-            val maxAttempts = if (uiState.hasExtraTry) 6 else 5
+            // ✅ maxAttempts est réactif : 4, 5 ou 6 selon les vidéos regardées
+            val maxAttempts = uiState.maxAttempts
 
             BoxWithConstraints(
                 modifier = Modifier

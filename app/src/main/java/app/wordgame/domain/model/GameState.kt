@@ -7,5 +7,6 @@ data class GameState(
     val gameOver: Boolean,
     val won: Boolean,
     val gameStartTime: Long = 0L,
-    val gameEndTime: Long = 0L
+    val gameEndTime: Long = 0L,
+    val extraTriesGranted: Int = 0
 )

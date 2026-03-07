@@ -8,8 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +21,10 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.*
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  HEADER
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun GameHeader(
     title: String,
@@ -30,10 +33,10 @@ fun GameHeader(
     onBackClick: () -> Unit,
     onStatsClick: () -> Unit,
     isSmallScreen: Boolean,
-    language: app.wordgame.domain.model.Language = _root_ide_package_.app.wordgame.domain.model.Language.FRENCH
+    language: app.wordgame.domain.model.Language = app.wordgame.domain.model.Language.FRENCH
 ) {
     val currentDate = remember {
-        val sdf = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) {
+        val sdf = if (language == app.wordgame.domain.model.Language.FRENCH) {
             SimpleDateFormat("EEEE dd MMMM yyyy", Locale.FRENCH)
         } else {
             SimpleDateFormat("EEEE, MMMM dd, yyyy", Locale.ENGLISH)
@@ -59,7 +62,6 @@ fun GameHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Bouton retour
                 IconButton(
                     onClick = onBackClick,
                     modifier = Modifier.size(if (isSmallScreen) 40.dp else 48.dp),
@@ -102,6 +104,7 @@ fun GameHeader(
                     )
                 }
             }
+
             Text(
                 text = currentDate,
                 fontSize = if (isSmallScreen) 10.sp else 12.sp,
@@ -115,7 +118,6 @@ fun GameHeader(
         }
     }
 }
-
 @Composable
 fun GameGrid(
     currentGuess: String,
@@ -123,7 +125,7 @@ fun GameGrid(
     viewModel: app.wordgame.presentation.viewmodel.GameViewModel,
     cellSize: Dp,
     cellSpacing: Dp,
-    maxAttempts: Int = 5,
+    maxAttempts: Int,          // ← valeur réactive (4 / 5 / 6)
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -141,37 +143,19 @@ fun GameGrid(
                     .fillMaxWidth()
                     .padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(
-                    cellSpacing,
-                    Alignment.CenterVertically
-                )
+                verticalArrangement = Arrangement.spacedBy(cellSpacing, Alignment.CenterVertically)
             ) {
-                // Afficher dynamiquement 5 ou 6 lignes
                 repeat(maxAttempts) { rowIndex ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(cellSpacing)
-                    ) {
-                        repeat(_root_ide_package_.app.wordgame.presentation.viewmodel.GameViewModel.Companion.WORD_LENGTH) { colIndex ->
-                            val letter = when {
-                                rowIndex < guesses.size ->
-                                    guesses[rowIndex].getOrNull(colIndex)?.toString() ?: ""
-                                rowIndex == guesses.size ->
-                                    currentGuess.getOrNull(colIndex)?.toString() ?: ""
-                                else -> ""
-                            }
-
-                            val state = if (rowIndex < guesses.size) {
-                                viewModel.getLetterState(
-                                    guesses[rowIndex][colIndex],
-                                    colIndex,
-                                    rowIndex
-                                )
-                            } else {
-                                _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY
-                            }
-
-                            LetterCell(letter = letter, state = state, size = cellSize)
-                        }
+                    key(rowIndex, maxAttempts) {
+                        GridRow(
+                            rowIndex = rowIndex,
+                            currentGuess = currentGuess,
+                            guesses = guesses,
+                            viewModel = viewModel,
+                            cellSize = cellSize,
+                            cellSpacing = cellSpacing,
+                            isBonus = rowIndex >= app.wordgame.presentation.viewmodel.GameViewModel.BASE_ATTEMPTS
+                        )
                     }
                 }
             }
@@ -179,19 +163,86 @@ fun GameGrid(
     }
 }
 
+/** Une ligne de la grille (5 cellules). */
 @Composable
-fun LetterCell(letter: String, state: app.wordgame.domain.model.LetterState, size: Dp) {
+private fun GridRow(
+    rowIndex: Int,
+    currentGuess: String,
+    guesses: List<String>,
+    viewModel: app.wordgame.presentation.viewmodel.GameViewModel,
+    cellSize: Dp,
+    cellSpacing: Dp,
+    isBonus: Boolean          // ← ligne 5 ou 6 débloquée par vidéo
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(cellSpacing)
+    ) {
+        repeat(app.wordgame.presentation.viewmodel.GameViewModel.WORD_LENGTH) { colIndex ->
+
+            val letter: String
+            val state: app.wordgame.domain.model.LetterState
+
+            when {
+                // Ligne déjà jouée
+                rowIndex < guesses.size -> {
+                    val guess = guesses[rowIndex]
+                    letter = guess.getOrNull(colIndex)?.toString() ?: ""
+                    state = if (letter.isNotEmpty()) {
+                        viewModel.getLetterState(guess[colIndex], colIndex, rowIndex)
+                    } else {
+                        app.wordgame.domain.model.LetterState.EMPTY
+                    }
+                }
+
+                // Ligne en cours de saisie
+                rowIndex == guesses.size -> {
+                    letter = currentGuess.getOrNull(colIndex)?.toString() ?: ""
+                    state = app.wordgame.domain.model.LetterState.EMPTY
+                }
+
+                // Ligne vide future
+                else -> {
+                    letter = ""
+                    state = app.wordgame.domain.model.LetterState.EMPTY
+                }
+            }
+
+            LetterCell(
+                letter = letter,
+                state = state,
+                size = cellSize,
+                isBonus = isBonus && rowIndex >= guesses.size   // coloration discrète si ligne bonus vide
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CELLULE LETTRE
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun LetterCell(
+    letter: String,
+    state: app.wordgame.domain.model.LetterState,
+    size: Dp,
+    isBonus: Boolean = false    // ← fond légèrement différent pour la ligne bonus vide
+) {
     val backgroundColor = when (state) {
-        _root_ide_package_.app.wordgame.domain.model.LetterState.CORRECT -> Color(0xFF4CAF50)
-        _root_ide_package_.app.wordgame.domain.model.LetterState.PRESENT -> Color(0xFFFFC107)
-        _root_ide_package_.app.wordgame.domain.model.LetterState.WRONG -> Color(0xFF9E9E9E)
-        _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY -> Color.White
+        app.wordgame.domain.model.LetterState.CORRECT -> Color(0xFF4CAF50)
+        app.wordgame.domain.model.LetterState.PRESENT -> Color(0xFFFFC107)
+        app.wordgame.domain.model.LetterState.WRONG   -> Color(0xFF9E9E9E)
+        app.wordgame.domain.model.LetterState.EMPTY   ->
+            if (isBonus) Color(0xFFF0F4FF) else Color.White   // teinte bleue douce sur ligne bonus
     }
 
-    val borderColor = if (letter.isNotEmpty() && state == _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY) {
-        Color(0xFF1976D2)
-    } else {
-        Color(0xFFDDDDDD)
+    val borderColor = when {
+        letter.isNotEmpty() && state == app.wordgame.domain.model.LetterState.EMPTY ->
+            Color(0xFF1976D2)                 // lettre en cours de saisie → bordure bleue
+        isBonus && state == app.wordgame.domain.model.LetterState.EMPTY ->
+            Color(0xFFBBCCEE)                 // ligne bonus vide → bordure bleue pâle
+        else ->
+            Color(0xFFDDDDDD)
     }
 
     Box(
@@ -201,19 +252,25 @@ fun LetterCell(letter: String, state: app.wordgame.domain.model.LetterState, siz
             .border(2.dp, borderColor, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = letter.uppercase(),
-            fontSize = when {
-                size < 35.dp -> 16.sp
-                size < 45.dp -> 20.sp
-                size < 56.dp -> 24.sp
-                else -> 28.sp
-            },
-            fontWeight = FontWeight.Bold,
-            color = if (state == _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY) Color(0xFF333333) else Color.White
-        )
+        if (letter.isNotEmpty()) {
+            Text(
+                text = letter.uppercase(),
+                fontSize = when {
+                    size < 35.dp -> 16.sp
+                    size < 45.dp -> 20.sp
+                    size < 56.dp -> 24.sp
+                    else         -> 28.sp
+                },
+                fontWeight = FontWeight.Bold,
+                color = if (state == app.wordgame.domain.model.LetterState.EMPTY) Color(0xFF333333) else Color.White
+            )
+        }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CLAVIER
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun GameKeyboard(
@@ -221,9 +278,9 @@ fun GameKeyboard(
     viewModel: app.wordgame.presentation.viewmodel.GameViewModel,
     gameOver: Boolean,
     language: app.wordgame.domain.model.Language,
-    currentGuessLength: Int   // ← NOUVEAU paramètre important
+    currentGuessLength: Int
 ) {
-    val layout = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) {
+    val layout = if (language == app.wordgame.domain.model.Language.FRENCH) {
         listOf(
             listOf("A","Z","E","R","T","Y","U","I","O","P"),
             listOf("Q","S","D","F","G","H","J","K","L","M"),
@@ -231,9 +288,9 @@ fun GameKeyboard(
         )
     } else {
         listOf(
-            listOf("Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"),
-            listOf("A", "S", "D", "F", "G", "H", "J", "K", "L"),
-            listOf("Z", "X", "C", "V", "B", "N", "M")
+            listOf("Q","W","E","R","T","Y","U","I","O","P"),
+            listOf("A","S","D","F","G","H","J","K","L"),
+            listOf("Z","X","C","V","B","N","M")
         )
     }
 
@@ -267,7 +324,7 @@ fun GameKeyboard(
                     if (rowIndex == layout.lastIndex) {
                         KeyboardKey(
                             text = "⌫",
-                            state = _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY,
+                            state = app.wordgame.domain.model.LetterState.EMPTY,
                             onClick = { onKeyPress("⌫") },
                             enabled = !gameOver,
                             modifier = Modifier.weight(1.5f)
@@ -295,7 +352,7 @@ fun GameKeyboard(
                     )
                 ) {
                     Text(
-                        text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "VALIDER" else "VERIFY",
+                        text = if (language == app.wordgame.domain.model.Language.FRENCH) "VALIDER" else "VERIFY",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -314,15 +371,15 @@ fun KeyboardKey(
     modifier: Modifier = Modifier
 ) {
     val backgroundColor = when (state) {
-        _root_ide_package_.app.wordgame.domain.model.LetterState.CORRECT -> Color(0xFF4CAF50)
-        _root_ide_package_.app.wordgame.domain.model.LetterState.PRESENT -> Color(0xFFFFC107)
-        _root_ide_package_.app.wordgame.domain.model.LetterState.WRONG -> Color(0xFF9E9E9E)
-        _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY -> Color.White
+        app.wordgame.domain.model.LetterState.CORRECT -> Color(0xFF4CAF50)
+        app.wordgame.domain.model.LetterState.PRESENT -> Color(0xFFFFC107)
+        app.wordgame.domain.model.LetterState.WRONG   -> Color(0xFF9E9E9E)
+        app.wordgame.domain.model.LetterState.EMPTY   -> Color.White
     }
 
     val textColor = when (state) {
-        _root_ide_package_.app.wordgame.domain.model.LetterState.CORRECT, _root_ide_package_.app.wordgame.domain.model.LetterState.PRESENT, _root_ide_package_.app.wordgame.domain.model.LetterState.WRONG -> Color.White
-        _root_ide_package_.app.wordgame.domain.model.LetterState.EMPTY -> Color.Black
+        app.wordgame.domain.model.LetterState.EMPTY -> Color.Black
+        else                                        -> Color.White
     }
 
     Box(

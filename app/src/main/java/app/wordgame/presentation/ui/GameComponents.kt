@@ -118,6 +118,11 @@ fun GameHeader(
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GRILLE DE JEU
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun GameGrid(
     currentGuess: String,
@@ -125,7 +130,7 @@ fun GameGrid(
     viewModel: app.wordgame.presentation.viewmodel.GameViewModel,
     cellSize: Dp,
     cellSpacing: Dp,
-    maxAttempts: Int,          // ← valeur réactive (4 / 5 / 6)
+    maxAttempts: Int,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -172,7 +177,7 @@ private fun GridRow(
     viewModel: app.wordgame.presentation.viewmodel.GameViewModel,
     cellSize: Dp,
     cellSpacing: Dp,
-    isBonus: Boolean          // ← ligne 5 ou 6 débloquée par vidéo
+    isBonus: Boolean
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(cellSpacing)
@@ -183,7 +188,6 @@ private fun GridRow(
             val state: app.wordgame.domain.model.LetterState
 
             when {
-                // Ligne déjà jouée
                 rowIndex < guesses.size -> {
                     val guess = guesses[rowIndex]
                     letter = guess.getOrNull(colIndex)?.toString() ?: ""
@@ -193,14 +197,10 @@ private fun GridRow(
                         app.wordgame.domain.model.LetterState.EMPTY
                     }
                 }
-
-                // Ligne en cours de saisie
                 rowIndex == guesses.size -> {
                     letter = currentGuess.getOrNull(colIndex)?.toString() ?: ""
                     state = app.wordgame.domain.model.LetterState.EMPTY
                 }
-
-                // Ligne vide future
                 else -> {
                     letter = ""
                     state = app.wordgame.domain.model.LetterState.EMPTY
@@ -211,7 +211,7 @@ private fun GridRow(
                 letter = letter,
                 state = state,
                 size = cellSize,
-                isBonus = isBonus && rowIndex >= guesses.size   // coloration discrète si ligne bonus vide
+                isBonus = isBonus && rowIndex >= guesses.size
             )
         }
     }
@@ -226,21 +226,21 @@ fun LetterCell(
     letter: String,
     state: app.wordgame.domain.model.LetterState,
     size: Dp,
-    isBonus: Boolean = false    // ← fond légèrement différent pour la ligne bonus vide
+    isBonus: Boolean = false
 ) {
     val backgroundColor = when (state) {
         app.wordgame.domain.model.LetterState.CORRECT -> Color(0xFF4CAF50)
         app.wordgame.domain.model.LetterState.PRESENT -> Color(0xFFFFC107)
         app.wordgame.domain.model.LetterState.WRONG   -> Color(0xFF9E9E9E)
         app.wordgame.domain.model.LetterState.EMPTY   ->
-            if (isBonus) Color(0xFFF0F4FF) else Color.White   // teinte bleue douce sur ligne bonus
+            if (isBonus) Color(0xFFF0F4FF) else Color.White
     }
 
     val borderColor = when {
         letter.isNotEmpty() && state == app.wordgame.domain.model.LetterState.EMPTY ->
-            Color(0xFF1976D2)                 // lettre en cours de saisie → bordure bleue
+            Color(0xFF1976D2)
         isBonus && state == app.wordgame.domain.model.LetterState.EMPTY ->
-            Color(0xFFBBCCEE)                 // ligne bonus vide → bordure bleue pâle
+            Color(0xFFBBCCEE)
         else ->
             Color(0xFFDDDDDD)
     }

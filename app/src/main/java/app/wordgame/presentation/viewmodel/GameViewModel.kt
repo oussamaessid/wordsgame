@@ -21,7 +21,7 @@ data class GameUiState(
     val gameStartTime: Long = 0L,
     val gameEndTime: Long = 0L,
     val showRewardedAdDialog: Boolean = false,
-    val extraTriesGranted: Int = 0,   // 0 = aucun, 1 = une ligne bonus, 2 = deux lignes bonus
+    val extraTriesGranted: Int = 0,
     val noInternetError: Boolean = false
 ) {
     /** Nombre total de lignes visibles dans la grille (4, 5 ou 6) */
@@ -41,8 +41,8 @@ class GameViewModel(
 
     companion object {
         const val WORD_LENGTH = 5
-        const val BASE_ATTEMPTS = 4        // Essais de base
-        const val MAX_EXTRA_TRIES = 2      // Maximum de lignes bonus (via vidéos)
+        const val BASE_ATTEMPTS = 4
+        const val MAX_EXTRA_TRIES = 2
         const val MAX_TOTAL_ATTEMPTS = BASE_ATTEMPTS + MAX_EXTRA_TRIES  // = 6
     }
 
@@ -115,9 +115,9 @@ class GameViewModel(
         if (state.gameOver) return
 
         when (key.uppercase()) {
-            "ENTER"            -> handleEnter()
-            "⌫", "BACKSPACE"  -> handleDelete()
-            else               -> if (key.length == 1 && key[0].isLetter()) handleLetterInput(key.uppercase())
+            "ENTER"           -> handleEnter()
+            "⌫", "BACKSPACE" -> handleDelete()
+            else              -> if (key.length == 1 && key[0].isLetter()) handleLetterInput(key.uppercase())
         }
     }
 
@@ -146,11 +146,10 @@ class GameViewModel(
         val result = validateGuessUseCase(state.currentGuess, state.targetWord)
         val newGuesses = state.guesses + result.guess
 
-        // Mise à jour immédiate : ajout de la ligne + reset de la saisie
         _uiState.value = state.copy(guesses = newGuesses, currentGuess = "")
         updateKeyboardFromGuesses(listOf(state.currentGuess), state.targetWord)
 
-        // ✅ VICTOIRE — priorité absolue
+        // ✅ VICTOIRE
         if (result.isCorrect) {
             val endTime = System.currentTimeMillis()
             _uiState.value = _uiState.value.copy(
@@ -162,28 +161,21 @@ class GameViewModel(
             return
         }
 
-        // ❌ Mauvaise réponse — décision selon le nombre d'essais
         val triesUsed = newGuesses.size
         val currentExtra = state.extraTriesGranted
 
         when {
-            // Toutes les lignes épuisées (y compris les deux bonus) → perdu
             triesUsed >= MAX_TOTAL_ATTEMPTS -> {
                 finishLost()
             }
-
-            // Essais de base épuisés ET pas encore de 1er bonus → proposer vidéo
             triesUsed >= BASE_ATTEMPTS + currentExtra && currentExtra < MAX_EXTRA_TRIES -> {
                 if (app.wordgame.ads.AdManager.isRewardedAdExtraTryAvailable()) {
                     _uiState.value = _uiState.value.copy(showRewardedAdDialog = true)
                     saveGameState()
                 } else {
-                    // Pas de pub disponible → perdu directement
                     finishLost()
                 }
             }
-
-            // Continuer à jouer
             else -> saveGameState()
         }
     }
@@ -216,31 +208,35 @@ class GameViewModel(
     // ─────────────────────────────────────────────
 
     /**
-     * Appelé après qu'une vidéo a été regardée jusqu'au bout.
-     * Débloque UNE ligne supplémentaire (max 2 fois).
+     * FIX: Wrapped in viewModelScope.launch pour garantir l'exécution
+     * sur le Main thread, même si appelé depuis un callback publicitaire.
      */
     fun addExtraTry() {
-        val state = _uiState.value
-        if (state.extraTriesGranted >= MAX_EXTRA_TRIES) return   // sécurité
+        viewModelScope.launch {
+            val state = _uiState.value
+            if (state.extraTriesGranted >= MAX_EXTRA_TRIES) return@launch
 
-        _uiState.value = state.copy(
-            showRewardedAdDialog = false,
-            extraTriesGranted = state.extraTriesGranted + 1,
-            currentGuess = ""
-        )
-        saveGameState()
+            _uiState.value = state.copy(
+                showRewardedAdDialog = false,
+                extraTriesGranted = state.extraTriesGranted + 1,
+                currentGuess = ""
+            )
+            saveGameState()
+        }
     }
 
     /**
-     * L'utilisateur a fermé la pub sans la regarder → partie perdue.
-     * Protégé : ne fait rien si la partie est déjà terminée.
+     * FIX: Wrapped in viewModelScope.launch pour garantir l'exécution
+     * sur le Main thread, même si appelé depuis un callback publicitaire.
      */
     fun finishGameAsLost() {
-        val state = _uiState.value
-        if (state.gameOver || state.won) return
+        viewModelScope.launch {
+            val state = _uiState.value
+            if (state.gameOver || state.won) return@launch
 
-        _uiState.value = state.copy(showRewardedAdDialog = false)
-        finishLost()
+            _uiState.value = state.copy(showRewardedAdDialog = false)
+            finishLost()
+        }
     }
 
     fun hideRewardedAdDialog() {
@@ -318,7 +314,7 @@ class GameViewModel(
                 won = s.won,
                 gameStartTime = s.gameStartTime,
                 gameEndTime = s.gameEndTime,
-                extraTriesGranted = s.extraTriesGranted   // ← persisté
+                extraTriesGranted = s.extraTriesGranted
             )
             saveGameStateUseCase(gs, currentLanguage)
         }

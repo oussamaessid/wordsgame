@@ -163,7 +163,6 @@ fun DailyWordGameScreen(
                 language = language
             )
 
-            // ✅ maxAttempts est réactif : 4, 5 ou 6 selon les vidéos regardées
             val maxAttempts = uiState.maxAttempts
 
             BoxWithConstraints(
@@ -182,18 +181,22 @@ fun DailyWordGameScreen(
                     (availableHeight - totalSpacing - padding) / maxAttempts
                 )
 
-                GameGrid(
-                    currentGuess = uiState.currentGuess,
-                    guesses = uiState.guesses,
-                    viewModel = viewModel,
-                    cellSize = finalCellSize,
-                    cellSpacing = spacing,
-                    maxAttempts = maxAttempts,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .padding(vertical = 4.dp, horizontal = 4.dp)
-                )
+                // FIX: key(uiState.maxAttempts) force Compose à reconstruire
+                // entièrement la grille quand une ligne bonus est débloquée.
+                key(uiState.maxAttempts) {
+                    GameGrid(
+                        currentGuess = uiState.currentGuess,
+                        guesses = uiState.guesses,
+                        viewModel = viewModel,
+                        cellSize = finalCellSize,
+                        cellSpacing = spacing,
+                        maxAttempts = maxAttempts,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                            .padding(vertical = 4.dp, horizontal = 4.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -238,8 +241,9 @@ fun DailyWordGameScreen(
         if (uiState.showRewardedAdDialog) {
             RewardedAdChoiceDialog(
                 onWatchExtraTryAd = {
-                    viewModel.hideRewardedAdDialog()
-
+                    // FIX: hideRewardedAdDialog() supprimé ici — c'est addExtraTry()
+                    // qui masque le dialog, évitant ainsi la race condition qui
+                    // empêchait la ligne bonus d'apparaître correctement.
                     var wasRewarded = false
 
                     app.wordgame.ads.AdManager.showRewardedAdExtraTry(

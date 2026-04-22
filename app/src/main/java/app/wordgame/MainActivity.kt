@@ -29,13 +29,11 @@ class MainActivity : ComponentActivity() {
         // Initialiser AdMob
         app.wordgame.ads.AdManager.initialize(this)
 
-        // Charger TOUTES les annonces
         app.wordgame.ads.AdManager.loadAppOpenAd(this)
         app.wordgame.ads.AdManager.loadInterstitial(this)
         app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)   // Charge aussi le fallback si échec
         app.wordgame.ads.AdManager.loadRewardedAdSolution(this)    // Charge aussi le fallback si échec
 
-        // ✅ Charger le fallback interstitiel dès le démarrage (en plus des Rewarded)
         app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this)
 
         appStartTime = System.currentTimeMillis()

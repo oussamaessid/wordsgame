@@ -30,18 +30,18 @@ object AdManager {
     const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
 
     // Mode test (changez à false pour production)
-    private var isTestMode = false
+    private var isTestMode = true
 
     private var interstitialAd: InterstitialAd? = null
-    private var interstitialRewardFallback: InterstitialAd? = null  // ✅ Fallback pour ligne 6
+    private var interstitialRewardFallback: InterstitialAd? = null
     private var appOpenAd: AppOpenAd? = null
     private var rewardedAdExtraTry: RewardedAd? = null
     private var rewardedAdSolution: RewardedAd? = null
 
-    private var isLoadingInterstitialFallback = false  // ✅ Éviter double chargement
+    private var isLoadingInterstitialFallback = false
 
     private var lastInterstitialTime = 0L
-    private const val INTERSTITIAL_INTERVAL = 5 * 60 * 1000L // 5 minutes
+    private const val INTERSTITIAL_INTERVAL = 5 * 60 * 1000L 
 
     fun initialize(context: Context) {
         MobileAds.initialize(context) { initStatus ->

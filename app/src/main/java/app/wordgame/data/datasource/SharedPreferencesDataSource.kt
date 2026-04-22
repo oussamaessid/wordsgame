@@ -14,6 +14,7 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
             putBoolean("won", state.won)
             putLong("gameStartTime", state.gameStartTime)
             putLong("gameEndTime", state.gameEndTime)
+            putInt("extraTriesGranted", state.extraTriesGranted) // ✅ FIX
             apply()
         }
     }
@@ -28,15 +29,17 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
         val won = prefs.getBoolean("won", false)
         val gameStartTime = prefs.getLong("gameStartTime", 0L)
         val gameEndTime = prefs.getLong("gameEndTime", 0L)
+        val extraTriesGranted = prefs.getInt("extraTriesGranted", 0) // ✅ FIX
 
-        return _root_ide_package_.app.wordgame.domain.model.GameState(
+        return app.wordgame.domain.model.GameState(
             date = date,
             word = word,
             guesses = guesses,
             gameOver = gameOver,
             won = won,
             gameStartTime = gameStartTime,
-            gameEndTime = gameEndTime
+            gameEndTime = gameEndTime,
+            extraTriesGranted = extraTriesGranted // ✅ FIX
         )
     }
 
@@ -53,7 +56,7 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
 
     override suspend fun loadStats(language: app.wordgame.domain.model.Language): app.wordgame.domain.model.GameStats {
         val prefs = context.getSharedPreferences("WordGame_${language.code}", Context.MODE_PRIVATE)
-        return _root_ide_package_.app.wordgame.domain.model.GameStats(
+        return app.wordgame.domain.model.GameStats(
             totalPlayed = prefs.getInt("totalPlayed", 0),
             wins = prefs.getInt("wins", 0),
             currentStreak = prefs.getInt("currentStreak", 0),

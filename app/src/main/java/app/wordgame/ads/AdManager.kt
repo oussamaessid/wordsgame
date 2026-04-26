@@ -14,14 +14,14 @@ object AdManager {
     private const val TAG = "AdManager"
 
     const val APP_ID = "ca-app-pub-2498267529185476~7471990700"
-    const val BANNER_LANGUAGE_ID = "ca-app-pub-2498267529185476/6158909031"
-    const val BANNER_GAME_ID = "ca-app-pub-2498267529185476/3888076711"
-    const val APP_OPEN_ID = "ca-app-pub-2498267529185476/1261913379"
-    const val INTERSTITIAL_ID = "ca-app-pub-2498267529185476/2260026625"
-    const val REWARDED_EXTRA_TRY_ID = "ca-app-pub-2498267529185476/2881272915"
-    const val REWARDED_SOLUTION_ID = "ca-app-pub-2498267529185476/7307603089"
+    const val BANNER_LANGUAGE_ID = "ca-app-pub-9651830078758870/5768416748"
+    const val BANNER_GAME_ID = "ca-app-pub-9651830078758870/6658511952"
+    const val APP_OPEN_ID = "ca-app-pub-9651830078758870/6015828752"
+    const val INTERSTITIAL_ID = "ca-app-pub-9651830078758870/5345430289"
+    const val REWARDED_EXTRA_TRY_ID = "ca-app-pub-9651830078758870/5301512885"
+    const val REWARDED_SOLUTION_ID = "ca-app-pub-9651830078758870/5237619075"
 
-    const val INTERSTITIAL_REWARD_FALLBACK_ID = "ca-app-pub-2498267529185476/2506921717"
+    const val INTERSTITIAL_REWARD_FALLBACK_ID = "ca-app-pub-9651830078758870/8789851277"
 
     // IDs de test
     const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
@@ -30,7 +30,7 @@ object AdManager {
     const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
 
     // Mode test (changez à false pour production)
-    private var isTestMode = true
+    private var isTestMode = false
 
     private var interstitialAd: InterstitialAd? = null
     private var interstitialRewardFallback: InterstitialAd? = null

@@ -23,13 +23,13 @@ object AdManager {
 
     const val INTERSTITIAL_REWARD_FALLBACK_ID = "ca-app-pub-9651830078758870/8789851277"
 
-    // IDs de test
+    // IDs de test Google officiels
     const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
     const val TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
     const val TEST_APP_OPEN_ID = "ca-app-pub-3940256099942544/9257395921"
     const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
 
-    // Mode test (changez à false pour production)
+    // Activé automatiquement en build debug pour éviter les clics invalides sur appareils réels
     private var isTestMode = false
 
     private var interstitialAd: InterstitialAd? = null
@@ -38,23 +38,32 @@ object AdManager {
     private var rewardedAdExtraTry: RewardedAd? = null
     private var rewardedAdSolution: RewardedAd? = null
 
+    private var isLoadingInterstitial = false
     private var isLoadingInterstitialFallback = false
+    private var isLoadingAppOpen = false
+    private var isLoadingRewardedExtraTry = false
+    private var isLoadingRewardedSolution = false
 
     private var lastInterstitialTime = 0L
-    private const val INTERSTITIAL_INTERVAL = 5 * 60 * 1000L 
+    private const val INTERSTITIAL_INTERVAL = 5 * 60 * 1000L
 
-    fun initialize(context: Context) {
+    fun initialize(context: Context, debugMode: Boolean = false) {
+        // En mode debug, on force les annonces de test pour éviter tout clic invalide
+        isTestMode = debugMode
+        if (isTestMode) {
+            Log.w(TAG, "⚠️ AdMob en MODE TEST — aucune annonce réelle ne sera servie")
+        }
+
         MobileAds.initialize(context) { initStatus ->
             Log.d(TAG, "AdMob initialized: ${initStatus.adapterStatusMap}")
         }
 
-        if (isTestMode) {
-            val testDeviceIds = listOf(AdRequest.DEVICE_ID_EMULATOR)
-            val configuration = RequestConfiguration.Builder()
-                .setTestDeviceIds(testDeviceIds)
-                .build()
-            MobileAds.setRequestConfiguration(configuration)
-        }
+        // Toujours configurer les device IDs de test (émulateur + appareils de dev)
+        val testDeviceIds = mutableListOf(AdRequest.DEVICE_ID_EMULATOR)
+        val configuration = RequestConfiguration.Builder()
+            .setTestDeviceIds(testDeviceIds)
+            .build()
+        MobileAds.setRequestConfiguration(configuration)
     }
 
     fun setTestMode(enabled: Boolean) {
@@ -90,16 +99,18 @@ object AdManager {
     }
 
     fun loadInterstitial(context: Context, onAdLoaded: () -> Unit = {}) {
-        val adRequest = AdRequest.Builder().build()
+        if (isLoadingInterstitial || interstitialAd != null) return
+        isLoadingInterstitial = true
 
         InterstitialAd.load(
             context,
             getInterstitialAdId(),
-            adRequest,
+            AdRequest.Builder().build(),
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
                     Log.d(TAG, "✅ Interstitial loaded")
                     interstitialAd = ad
+                    isLoadingInterstitial = false
                     onAdLoaded()
 
                     ad.fullScreenContentCallback = object : FullScreenContentCallback() {
@@ -119,6 +130,7 @@ object AdManager {
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "❌ Failed to load interstitial: ${error.message}")
                     interstitialAd = null
+                    isLoadingInterstitial = false
                 }
             }
         )
@@ -187,8 +199,7 @@ object AdManager {
                 override fun onAdFailedToShowFullScreenContent(error: AdError) {
                     Log.e(TAG, "❌ Échec affichage Interstitiel FALLBACK: ${error.message}")
                     interstitialRewardFallback = null
-                    // En cas d'échec d'affichage, on donne quand même la récompense
-                    onRewarded()
+                    // Pas de récompense si l'annonce n'a pas été vue (règles Google)
                     onAdDismissed()
                 }
                 override fun onAdShowedFullScreenContent() {
@@ -204,6 +215,9 @@ object AdManager {
     }
 
     fun loadAppOpenAd(context: Context, onAdLoaded: () -> Unit = {}) {
+        if (isLoadingAppOpen || appOpenAd != null) return
+        isLoadingAppOpen = true
+
         AppOpenAd.load(
             context,
             getAppOpenAdId(),
@@ -213,11 +227,13 @@ object AdManager {
                 override fun onAdLoaded(ad: AppOpenAd) {
                     Log.d(TAG, "✅ App open ad loaded")
                     appOpenAd = ad
+                    isLoadingAppOpen = false
                     onAdLoaded()
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "❌ Failed to load app open ad: ${error.message}")
                     appOpenAd = null
+                    isLoadingAppOpen = false
                 }
             }
         )
@@ -247,6 +263,9 @@ object AdManager {
     }
 
     fun loadRewardedAdExtraTry(context: Context, onAdLoaded: () -> Unit = {}) {
+        if (isLoadingRewardedExtraTry || rewardedAdExtraTry != null) return
+        isLoadingRewardedExtraTry = true
+
         RewardedAd.load(
             context,
             getRewardedExtraTryId(),
@@ -255,13 +274,13 @@ object AdManager {
                 override fun onAdLoaded(ad: RewardedAd) {
                     Log.d(TAG, "✅ Rewarded EXTRA TRY loaded")
                     rewardedAdExtraTry = ad
+                    isLoadingRewardedExtraTry = false
                     onAdLoaded()
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "❌ Failed to load Rewarded EXTRA TRY: ${error.message}")
                     rewardedAdExtraTry = null
-                    // ✅ Charger le fallback automatiquement si Rewarded échoue
-                    Log.d(TAG, "🔄 Chargement Interstitiel FALLBACK en remplacement...")
+                    isLoadingRewardedExtraTry = false
                     loadInterstitialRewardFallback(context)
                 }
             }
@@ -312,6 +331,9 @@ object AdManager {
     }
 
     fun loadRewardedAdSolution(context: Context, onAdLoaded: () -> Unit = {}) {
+        if (isLoadingRewardedSolution || rewardedAdSolution != null) return
+        isLoadingRewardedSolution = true
+
         RewardedAd.load(
             context,
             getRewardedSolutionId(),
@@ -320,13 +342,13 @@ object AdManager {
                 override fun onAdLoaded(ad: RewardedAd) {
                     Log.d(TAG, "✅ Rewarded SOLUTION loaded")
                     rewardedAdSolution = ad
+                    isLoadingRewardedSolution = false
                     onAdLoaded()
                 }
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     Log.e(TAG, "❌ Failed to load Rewarded SOLUTION: ${error.message}")
                     rewardedAdSolution = null
-                    // ✅ Charger le fallback automatiquement si Rewarded échoue
-                    Log.d(TAG, "🔄 Chargement Interstitiel FALLBACK en remplacement...")
+                    isLoadingRewardedSolution = false
                     loadInterstitialRewardFallback(context)
                 }
             }

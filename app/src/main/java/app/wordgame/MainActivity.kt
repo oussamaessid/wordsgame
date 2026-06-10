@@ -1,6 +1,7 @@
 package app.wordgame
 
 import android.os.Bundle
+import app.wordgame.BuildConfig
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,14 +27,14 @@ class MainActivity : ComponentActivity() {
 
         _root_ide_package_.app.wordgame.di.AppContainer.initialize(this)
 
-        // Initialiser AdMob
-        app.wordgame.ads.AdManager.initialize(this)
+        // Initialiser AdMob — BuildConfig.DEBUG active automatiquement les annonces de test
+        // en développement pour éviter les clics invalides sur appareils réels
+        app.wordgame.ads.AdManager.initialize(this, debugMode = BuildConfig.DEBUG)
 
         app.wordgame.ads.AdManager.loadAppOpenAd(this)
         app.wordgame.ads.AdManager.loadInterstitial(this)
-        app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)   // Charge aussi le fallback si échec
-        app.wordgame.ads.AdManager.loadRewardedAdSolution(this)    // Charge aussi le fallback si échec
-
+        app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)
+        app.wordgame.ads.AdManager.loadRewardedAdSolution(this)
         app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this)
 
         appStartTime = System.currentTimeMillis()
@@ -94,12 +95,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-
-        lifecycleScope.launch {
-            app.wordgame.ads.AdManager.loadInterstitial(this@MainActivity)
-            app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this@MainActivity)
-            app.wordgame.ads.AdManager.loadRewardedAdSolution(this@MainActivity)
-            app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this@MainActivity)
-        }
+        // Les gardes internes dans AdManager évitent les chargements en double.
+        // On ne recharge que si une annonce est absente (après affichage ou échec).
+        app.wordgame.ads.AdManager.loadInterstitial(this)
+        app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)
+        app.wordgame.ads.AdManager.loadRewardedAdSolution(this)
+        app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this)
     }
 }

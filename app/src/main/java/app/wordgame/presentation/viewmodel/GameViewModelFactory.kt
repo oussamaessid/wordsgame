@@ -11,7 +11,8 @@ class GameViewModelFactory(
     private val saveStatsUseCase: app.wordgame.domain.usecase.SaveStatsUseCase,
     private val loadStatsUseCase: app.wordgame.domain.usecase.LoadStatsUseCase,
     private val validateGuessUseCase: app.wordgame.domain.usecase.ValidateGuessUseCase,
-    private val updateStatsUseCase: app.wordgame.domain.usecase.UpdateStatsUseCase
+    private val updateStatsUseCase: app.wordgame.domain.usecase.UpdateStatsUseCase,
+    private val isValidWordUseCase: app.wordgame.domain.usecase.IsValidWordUseCase
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -25,6 +26,7 @@ class GameViewModelFactory(
                 loadStatsUseCase = loadStatsUseCase,
                 validateGuessUseCase = validateGuessUseCase,
                 updateStatsUseCase = updateStatsUseCase,
+                isValidWordUseCase = isValidWordUseCase,
                 repository = repository
             ) as T
         }

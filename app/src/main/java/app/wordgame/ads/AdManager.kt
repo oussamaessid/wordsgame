@@ -66,6 +66,11 @@ object AdManager {
         isTestMode = debugMode
         if (isTestMode) {
             Log.w(TAG, "⚠️ AdMob en MODE TEST — aucune annonce réelle ne sera servie")
+            if (DEVELOPER_DEVICE_IDS.isEmpty()) {
+                Log.e(TAG, "🚨 DEVELOPER_DEVICE_IDS est VIDE ! " +
+                    "En release, ton appareil recevra de VRAIES annonces. " +
+                    "Cherche dans Logcat 'setTestDeviceIds' pour trouver ton hash.")
+            }
         }
 
         MobileAds.initialize(context) { initStatus ->
@@ -253,7 +258,6 @@ object AdManager {
             context,
             getAppOpenAdId(),
             AdRequest.Builder().build(),
-            AppOpenAd.APP_OPEN_AD_ORIENTATION_PORTRAIT,
             object : AppOpenAd.AppOpenAdLoadCallback() {
                 override fun onAdLoaded(ad: AppOpenAd) {
                     Log.d(TAG, "✅ App open ad loaded")

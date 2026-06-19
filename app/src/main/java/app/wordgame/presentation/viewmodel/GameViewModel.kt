@@ -22,7 +22,8 @@ data class GameUiState(
     val gameEndTime: Long = 0L,
     val showRewardedAdDialog: Boolean = false,
     val extraTriesGranted: Int = 0,
-    val noInternetError: Boolean = false
+    val noInternetError: Boolean = false,
+    val invalidWordError: Boolean = false
 ) {
     /** Nombre total de lignes visibles dans la grille (4, 5 ou 6) */
     val maxAttempts: Int get() = GameViewModel.BASE_ATTEMPTS + extraTriesGranted
@@ -36,6 +37,7 @@ class GameViewModel(
     private val loadStatsUseCase: app.wordgame.domain.usecase.LoadStatsUseCase,
     private val validateGuessUseCase: app.wordgame.domain.usecase.ValidateGuessUseCase,
     private val updateStatsUseCase: app.wordgame.domain.usecase.UpdateStatsUseCase,
+    private val isValidWordUseCase: app.wordgame.domain.usecase.IsValidWordUseCase,
     private val repository: app.wordgame.data.repository.GameRepositoryImpl
 ) : ViewModel() {
 
@@ -139,10 +141,20 @@ class GameViewModel(
     //  VALIDATION D'UN ESSAI
     // ─────────────────────────────────────────────
 
+    fun clearInvalidWordError() {
+        _uiState.value = _uiState.value.copy(invalidWordError = false)
+    }
+
     private fun handleEnter() {
         val state = _uiState.value
         if (state.currentGuess.length != WORD_LENGTH) return
 
+        if (!isValidWordUseCase(state.currentGuess, currentLanguage)) {
+            _uiState.value = state.copy(invalidWordError = true)
+            return
+        }
+
+        _uiState.value = state.copy(invalidWordError = false)
         val result = validateGuessUseCase(state.currentGuess, state.targetWord)
         val newGuesses = state.guesses + result.guess
 

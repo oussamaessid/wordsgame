@@ -47,9 +47,9 @@ class MainActivity : ComponentActivity() {
             var showAppOpenAd by remember { mutableStateOf(true) }
             var appOpenAdShown by remember { mutableStateOf(false) }
 
-            // Délai de 1.5s pour éviter les clics accidentels au lancement
+            // Délai de 2.5s pour éviter les clics accidentels au lancement
             LaunchedEffect(Unit) {
-                delay(1500)
+                delay(2500)
                 if (!appOpenAdShown) {
                     app.wordgame.ads.AdManager.showAppOpenAd(this@MainActivity) {
                         showAppOpenAd = false

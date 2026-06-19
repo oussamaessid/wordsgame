@@ -2,8 +2,10 @@ package app.wordgame.presentation.ui
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -19,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun DailyWordGameScreen(
@@ -40,6 +43,13 @@ fun DailyWordGameScreen(
 
     LaunchedEffect(language) {
         viewModel.initializeGame(language)
+    }
+
+    LaunchedEffect(uiState.invalidWordError) {
+        if (uiState.invalidWordError) {
+            delay(1800)
+            viewModel.clearInvalidWordError()
+        }
     }
 
     if (uiState.isLoading) {
@@ -199,7 +209,32 @@ fun DailyWordGameScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            AnimatedVisibility(
+                visible = uiState.invalidWordError,
+                enter = fadeIn() + slideInVertically(),
+                exit = fadeOut() + slideOutVertically()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .background(Color(0xFFD32F2F), RoundedCornerShape(10.dp))
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (language == app.wordgame.domain.model.Language.FRENCH)
+                            "❌ Mot non reconnu !" else "❌ Word not found!",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             GameKeyboard(
                 onKeyPress = { key -> viewModel.onKeyPressed(key) },

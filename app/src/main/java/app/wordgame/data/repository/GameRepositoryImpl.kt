@@ -77,11 +77,16 @@ class GameRepositoryImpl(
 
     override fun getDailyWord(language: app.wordgame.domain.model.Language, date: String): String {
         val wordList = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) frenchWords else englishWords
-        if (wordList.isEmpty()) return "ABCDE" // fallback sécurisé
+        if (wordList.isEmpty()) return "ABCDE"
 
         val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(date)!!
         val daysSinceStart = ((currentDate.time - startDate.time) / (1000 * 60 * 60 * 24)).toInt()
         val index = daysSinceStart % wordList.size
         return wordList[index]
+    }
+
+    override fun isValidWord(word: String, language: app.wordgame.domain.model.Language): Boolean {
+        val wordList = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) frenchWords else englishWords
+        return wordList.contains(word.uppercase(Locale.getDefault()))
     }
 }

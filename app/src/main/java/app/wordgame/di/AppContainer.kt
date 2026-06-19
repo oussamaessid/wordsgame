@@ -40,7 +40,10 @@ object AppContainer {
                 gameRepository
             ),
             validateGuessUseCase = _root_ide_package_.app.wordgame.domain.usecase.ValidateGuessUseCase(),
-            updateStatsUseCase = _root_ide_package_.app.wordgame.domain.usecase.UpdateStatsUseCase()
+            updateStatsUseCase = _root_ide_package_.app.wordgame.domain.usecase.UpdateStatsUseCase(),
+            isValidWordUseCase = _root_ide_package_.app.wordgame.domain.usecase.IsValidWordUseCase(
+                gameRepository
+            )
         )
     }
 }

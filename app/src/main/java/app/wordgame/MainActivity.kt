@@ -20,15 +20,13 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var appStartTime = 0L
-    private var lastInterstitialCheck = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         _root_ide_package_.app.wordgame.di.AppContainer.initialize(this)
 
-        // Initialiser AdMob — BuildConfig.DEBUG active automatiquement les annonces de test
-        // en développement pour éviter les clics invalides sur appareils réels
+        // BuildConfig.DEBUG active automatiquement les annonces de test en développement
         app.wordgame.ads.AdManager.initialize(this, debugMode = BuildConfig.DEBUG)
 
         app.wordgame.ads.AdManager.loadAppOpenAd(this)
@@ -49,10 +47,10 @@ class MainActivity : ComponentActivity() {
             var showAppOpenAd by remember { mutableStateOf(true) }
             var appOpenAdShown by remember { mutableStateOf(false) }
 
-            // Afficher l'annonce d'ouverture une seule fois
+            // Délai de 1.5s pour éviter les clics accidentels au lancement
             LaunchedEffect(Unit) {
-                delay(500)
-                if (showAppOpenAd && !appOpenAdShown) {
+                delay(1500)
+                if (!appOpenAdShown) {
                     app.wordgame.ads.AdManager.showAppOpenAd(this@MainActivity) {
                         showAppOpenAd = false
                         appOpenAdShown = true
@@ -62,21 +60,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Vérifier périodiquement pour les annonces interstitielles
-            LaunchedEffect(Unit) {
-                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    while (true) {
-                        delay(60000) // Vérifier chaque minute
-                        val currentTime = System.currentTimeMillis()
-
-                        if (currentTime - lastInterstitialCheck >= 5 * 60 * 1000) {
-                            if (app.wordgame.ads.AdManager.showInterstitialIfReady(this@MainActivity)) {
-                                lastInterstitialCheck = currentTime
-                            }
-                        }
-                    }
-                }
-            }
+            // SUPPRIMÉ : boucle automatique d'interstitielle toutes les 5 min.
+            // Les interstitielles ne doivent s'afficher que sur action utilisateur
+            // (fin de partie, navigation) pour éviter le trafic invalide.
 
             MaterialTheme {
                 Surface(
@@ -95,8 +81,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Les gardes internes dans AdManager évitent les chargements en double.
-        // On ne recharge que si une annonce est absente (après affichage ou échec).
         app.wordgame.ads.AdManager.loadInterstitial(this)
         app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)
         app.wordgame.ads.AdManager.loadRewardedAdSolution(this)

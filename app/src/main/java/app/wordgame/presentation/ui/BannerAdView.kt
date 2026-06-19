@@ -9,8 +9,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
 
 @Composable
 fun BannerAdView(
@@ -23,7 +25,7 @@ fun BannerAdView(
         modifier = modifier
             .fillMaxWidth()
             .background(Color(0xFFFFFFFF))
-            .padding(vertical = 4.dp), // Retiré navigationBarsPadding()
+            .padding(vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         AndroidView(
@@ -31,6 +33,15 @@ fun BannerAdView(
                 AdView(ctx).apply {
                     adUnitId = app.wordgame.ads.AdManager.getBannerAdId(isLanguageScreen)
                     setAdSize(AdSize.BANNER)
+                    adListener = object : AdListener() {
+                        override fun onAdClicked() {
+                            // Enregistre le clic pour activer le cooldown anti-clic invalide
+                            app.wordgame.ads.AdManager.recordAdClick()
+                        }
+                        override fun onAdFailedToLoad(error: LoadAdError) {
+                            android.util.Log.e("BannerAdView", "Failed to load banner: ${error.message}")
+                        }
+                    }
                     loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
                 }
             },

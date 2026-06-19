@@ -29,7 +29,6 @@ object AdManager {
     const val TEST_APP_OPEN_ID = "ca-app-pub-3940256099942544/9257395921"
     const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
 
-    // Activé automatiquement en build debug pour éviter les clics invalides sur appareils réels
     private var isTestMode = false
 
     private var interstitialAd: InterstitialAd? = null
@@ -45,10 +44,25 @@ object AdManager {
     private var isLoadingRewardedSolution = false
 
     private var lastInterstitialTime = 0L
+    private var lastAdClickTime = 0L
     private const val INTERSTITIAL_INTERVAL = 5 * 60 * 1000L
+    // Délai minimum entre deux clics sur une annonce (protection anti-clic invalide)
+    private const val AD_CLICK_COOLDOWN_MS = 30_000L
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // IMPORTANT — Protection appareil physique de développeur :
+    // Ajoutez le hash MD5 de votre appareil pour qu'il reçoive toujours des
+    // annonces de test (même en release). Pour obtenir le hash :
+    //   1. Lancez l'app en debug sur votre appareil
+    //   2. Cherchez dans Logcat : "Use RequestConfiguration.Builder().setTestDeviceIds"
+    //   3. Copiez le hash et collez-le ci-dessous
+    // ───────────────────────────────────────────────────────────────────────────
+    private val DEVELOPER_DEVICE_IDS = listOf<String>(
+        // Ajoutez ici le hash de votre appareil, ex :
+        // "ABCDEF1234567890ABCDEF1234567890"
+    )
 
     fun initialize(context: Context, debugMode: Boolean = false) {
-        // En mode debug, on force les annonces de test pour éviter tout clic invalide
         isTestMode = debugMode
         if (isTestMode) {
             Log.w(TAG, "⚠️ AdMob en MODE TEST — aucune annonce réelle ne sera servie")
@@ -58,12 +72,22 @@ object AdManager {
             Log.d(TAG, "AdMob initialized: ${initStatus.adapterStatusMap}")
         }
 
-        // Toujours configurer les device IDs de test (émulateur + appareils de dev)
+        // L'émulateur + les appareils du développeur reçoivent toujours des annonces de test
         val testDeviceIds = mutableListOf(AdRequest.DEVICE_ID_EMULATOR)
+        testDeviceIds.addAll(DEVELOPER_DEVICE_IDS)
         val configuration = RequestConfiguration.Builder()
             .setTestDeviceIds(testDeviceIds)
             .build()
         MobileAds.setRequestConfiguration(configuration)
+    }
+
+    fun recordAdClick() {
+        lastAdClickTime = System.currentTimeMillis()
+    }
+
+    private fun isAdClickAllowed(): Boolean {
+        val elapsed = System.currentTimeMillis() - lastAdClickTime
+        return elapsed > AD_CLICK_COOLDOWN_MS
     }
 
     fun setTestMode(enabled: Boolean) {
@@ -136,11 +160,18 @@ object AdManager {
         )
     }
 
+    // À appeler uniquement sur action utilisateur (fin de partie, navigation entre écrans).
+    // NE JAMAIS appeler depuis un timer automatique.
     fun showInterstitialIfReady(activity: Activity): Boolean {
         val currentTime = System.currentTimeMillis()
 
         if (currentTime - lastInterstitialTime < INTERSTITIAL_INTERVAL) {
             Log.d(TAG, "Interstitial interval not met yet")
+            return false
+        }
+
+        if (!isAdClickAllowed()) {
+            Log.d(TAG, "Ad click cooldown active — interstitial skipped")
             return false
         }
 

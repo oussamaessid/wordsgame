@@ -256,21 +256,20 @@ fun DailyWordGameScreen(
                 )
             }
 
-            if (uiState.showStats) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    StatsDialog(
-                        won = uiState.won,
-                        gameOver = false,
-                        attempts = uiState.guesses.size,
-                        targetWord = uiState.targetWord,
-                        stats = uiState.stats,
-                        onDismiss = { viewModel.toggleStatsDialog(false) },
-                        language = language,
-                        gameStartTime = uiState.gameStartTime,
-                        gameEndTime = uiState.gameEndTime
-                    )
-                }
-            }
+        }
+
+        if (uiState.showStats) {
+            StatsDialog(
+                won = uiState.won,
+                gameOver = false,
+                attempts = uiState.guesses.size,
+                targetWord = uiState.targetWord,
+                stats = uiState.stats,
+                onDismiss = { viewModel.toggleStatsDialog(false) },
+                language = language,
+                gameStartTime = uiState.gameStartTime,
+                gameEndTime = uiState.gameEndTime
+            )
         }
 
         if (uiState.showRewardedAdDialog) {

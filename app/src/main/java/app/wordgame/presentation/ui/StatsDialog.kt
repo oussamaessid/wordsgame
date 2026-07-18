@@ -125,16 +125,18 @@ fun StatsDialog(
             ) {
 
                 // ── Titre victoire / défaite ─────────────────────────────────
-                Text(
-                    text = if (won) translations["victory"]!! else translations["defeat"]!!,
-                    fontSize = titleFontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = if (won) Color(0xFF2E7D32) else Color(0xFFD32F2F),
-                    textAlign = TextAlign.Center,
-                    lineHeight = (titleFontSize.value + 4).sp
-                )
+                if (gameOver) {
+                    Text(
+                        text = if (won) translations["victory"]!! else translations["defeat"]!!,
+                        fontSize = titleFontSize,
+                        fontWeight = FontWeight.Bold,
+                        color = if (won) Color(0xFF2E7D32) else Color(0xFFD32F2F),
+                        textAlign = TextAlign.Center,
+                        lineHeight = (titleFontSize.value + 4).sp
+                    )
+                }
 
-                if (!won && targetWord.isNotBlank()) {
+                if (gameOver && !won && targetWord.isNotBlank()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

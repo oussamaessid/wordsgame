@@ -19,10 +19,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    // Mise à jour obligatoire : bloque l'app tant qu'une version plus récente existe sur le Play Store.
+    private val forceUpdate = ForceUpdateManager(this)
+
     private var appStartTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        forceUpdate.check { }
 
         _root_ide_package_.app.wordgame.di.AppContainer.initialize(this)
 
@@ -33,7 +37,6 @@ class MainActivity : ComponentActivity() {
         app.wordgame.ads.AdManager.loadInterstitial(this)
         app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)
         app.wordgame.ads.AdManager.loadRewardedAdSolution(this)
-        app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this)
 
         appStartTime = System.currentTimeMillis()
 
@@ -44,11 +47,13 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            var showAppOpenAd by remember { mutableStateOf(true) }
-            var appOpenAdShown by remember { mutableStateOf(false) }
+            // rememberSaveable : pas de nouvelle App Open après une rotation d'écran.
+            var showAppOpenAd by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(true) }
+            var appOpenAdShown by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
             // Délai de 2.5s pour éviter les clics accidentels au lancement
             LaunchedEffect(Unit) {
+                if (!showAppOpenAd) return@LaunchedEffect
                 delay(2500)
                 if (!appOpenAdShown) {
                     app.wordgame.ads.AdManager.showAppOpenAd(this@MainActivity) {
@@ -81,9 +86,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        forceUpdate.resumeIfInProgress()
         app.wordgame.ads.AdManager.loadInterstitial(this)
         app.wordgame.ads.AdManager.loadRewardedAdExtraTry(this)
         app.wordgame.ads.AdManager.loadRewardedAdSolution(this)
-        app.wordgame.ads.AdManager.loadInterstitialRewardFallback(this)
     }
 }

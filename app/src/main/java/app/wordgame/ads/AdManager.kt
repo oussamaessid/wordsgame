@@ -13,15 +13,12 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 object AdManager {
     private const val TAG = "AdManager"
 
-    const val APP_ID = "ca-app-pub-2498267529185476~7471990700"
     const val BANNER_LANGUAGE_ID = "ca-app-pub-9651830078758870/5768416748"
     const val BANNER_GAME_ID = "ca-app-pub-9651830078758870/6658511952"
     const val APP_OPEN_ID = "ca-app-pub-9651830078758870/6015828752"
     const val INTERSTITIAL_ID = "ca-app-pub-9651830078758870/5345430289"
     const val REWARDED_EXTRA_TRY_ID = "ca-app-pub-9651830078758870/5301512885"
     const val REWARDED_SOLUTION_ID = "ca-app-pub-9651830078758870/5237619075"
-
-    const val INTERSTITIAL_REWARD_FALLBACK_ID = "ca-app-pub-9651830078758870/8789851277"
 
     // IDs de test Google officiels
     const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
@@ -32,13 +29,11 @@ object AdManager {
     private var isTestMode = false
 
     private var interstitialAd: InterstitialAd? = null
-    private var interstitialRewardFallback: InterstitialAd? = null
     private var appOpenAd: AppOpenAd? = null
     private var rewardedAdExtraTry: RewardedAd? = null
     private var rewardedAdSolution: RewardedAd? = null
 
     private var isLoadingInterstitial = false
-    private var isLoadingInterstitialFallback = false
     private var isLoadingAppOpen = false
     private var isLoadingRewardedExtraTry = false
     private var isLoadingRewardedSolution = false
@@ -106,9 +101,6 @@ object AdManager {
 
     fun getInterstitialAdId(): String =
         if (isTestMode) TEST_INTERSTITIAL_ID else INTERSTITIAL_ID
-
-    fun getInterstitialRewardFallbackId(): String =        // ✅
-        if (isTestMode) TEST_INTERSTITIAL_ID else INTERSTITIAL_REWARD_FALLBACK_ID
 
     fun getAppOpenAdId(): String =
         if (isTestMode) TEST_APP_OPEN_ID else APP_OPEN_ID
@@ -190,66 +182,6 @@ object AdManager {
             false
         }
     }
-    fun loadInterstitialRewardFallback(context: Context, onAdLoaded: () -> Unit = {}) {
-        if (isLoadingInterstitialFallback) return
-        isLoadingInterstitialFallback = true
-
-        InterstitialAd.load(
-            context,
-            getInterstitialRewardFallbackId(),
-            AdRequest.Builder().build(),
-            object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(ad: InterstitialAd) {
-                    Log.d(TAG, "✅ Interstitiel FALLBACK ligne 6 chargé")
-                    interstitialRewardFallback = ad
-                    isLoadingInterstitialFallback = false
-                    onAdLoaded()
-                }
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.e(TAG, "❌ Échec Interstitiel FALLBACK: ${error.message}")
-                    interstitialRewardFallback = null
-                    isLoadingInterstitialFallback = false
-                }
-            }
-        )
-    }
-
-    private fun showInterstitialRewardFallback(
-        activity: Activity,
-        onRewarded: () -> Unit,
-        onAdDismissed: () -> Unit
-    ) {
-        val ad = interstitialRewardFallback
-
-        if (ad != null) {
-            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    Log.d(TAG, "✅ Interstitiel FALLBACK fermé → récompense accordée")
-                    interstitialRewardFallback = null
-                    // Récompense toujours donnée (même logique que Rewarded)
-                    onRewarded()
-                    onAdDismissed()
-                    // Recharger pour la prochaine utilisation
-                    loadInterstitialRewardFallback(activity)
-                }
-                override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    Log.e(TAG, "❌ Échec affichage Interstitiel FALLBACK: ${error.message}")
-                    interstitialRewardFallback = null
-                    // Pas de récompense si l'annonce n'a pas été vue (règles Google)
-                    onAdDismissed()
-                }
-                override fun onAdShowedFullScreenContent() {
-                    Log.d(TAG, "✅ Interstitiel FALLBACK affiché")
-                }
-            }
-            ad.show(activity)
-        } else {
-            Log.d(TAG, "⏳ Interstitiel FALLBACK pas disponible")
-            // Aucune annonce disponible du tout → appeler onAdDismissed sans récompense
-            onAdDismissed()
-        }
-    }
-
     fun loadAppOpenAd(context: Context, onAdLoaded: () -> Unit = {}) {
         if (isLoadingAppOpen || appOpenAd != null) return
         isLoadingAppOpen = true
@@ -274,7 +206,28 @@ object AdManager {
         )
     }
 
+    // App Open : jamais au tout premier lancement, et au maximum une fois toutes les 4 heures.
+    private const val MIN_APP_OPEN_INTERVAL_MS = 4 * 60 * 60 * 1000L
+    private const val PREFS_ADS = "ad_prefs"
+    private const val KEY_LAST_APP_OPEN = "last_app_open_ms"
+    private const val KEY_LAUNCHED_BEFORE = "launched_before"
+
+    private fun canShowAppOpen(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_ADS, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_LAUNCHED_BEFORE, false)) {
+            prefs.edit().putBoolean(KEY_LAUNCHED_BEFORE, true).apply()
+            return false
+        }
+        return System.currentTimeMillis() - prefs.getLong(KEY_LAST_APP_OPEN, 0L) >= MIN_APP_OPEN_INTERVAL_MS
+    }
+
     fun showAppOpenAd(activity: Activity, onAdDismissed: () -> Unit = {}) {
+        val resumed = (activity as? androidx.lifecycle.LifecycleOwner)?.lifecycle?.currentState
+            ?.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) ?: true
+        if (activity.isFinishing || activity.isDestroyed || !resumed || !canShowAppOpen(activity)) {
+            onAdDismissed()
+            return
+        }
         if (appOpenAd != null) {
             appOpenAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
@@ -288,6 +241,8 @@ object AdManager {
                 }
                 override fun onAdShowedFullScreenContent() {
                     Log.d(TAG, "App open ad shown")
+                    activity.getSharedPreferences(PREFS_ADS, Context.MODE_PRIVATE).edit()
+                        .putLong(KEY_LAST_APP_OPEN, System.currentTimeMillis()).apply()
                 }
             }
             appOpenAd?.show(activity)
@@ -316,7 +271,6 @@ object AdManager {
                     Log.e(TAG, "❌ Failed to load Rewarded EXTRA TRY: ${error.message}")
                     rewardedAdExtraTry = null
                     isLoadingRewardedExtraTry = false
-                    loadInterstitialRewardFallback(context)
                 }
             }
         )
@@ -353,11 +307,6 @@ object AdManager {
                 }
             }
 
-            interstitialRewardFallback != null -> {
-                Log.d(TAG, "📺 Rewarded non dispo → Interstitiel FALLBACK pour ligne 6")
-                showInterstitialRewardFallback(activity, onRewarded, onAdDismissed)
-            }
-
             else -> {
                 Log.d(TAG, "⏳ Aucune annonce EXTRA TRY disponible")
                 onAdDismissed()
@@ -384,7 +333,6 @@ object AdManager {
                     Log.e(TAG, "❌ Failed to load Rewarded SOLUTION: ${error.message}")
                     rewardedAdSolution = null
                     isLoadingRewardedSolution = false
-                    loadInterstitialRewardFallback(context)
                 }
             }
         )
@@ -421,11 +369,6 @@ object AdManager {
                 }
             }
 
-            interstitialRewardFallback != null -> {
-                Log.d(TAG, "📺 Rewarded non dispo → Interstitiel FALLBACK pour Solution")
-                showInterstitialRewardFallback(activity, onRewarded, onAdDismissed)
-            }
-
             else -> {
                 Log.d(TAG, "⏳ Aucune annonce SOLUTION disponible")
                 onAdDismissed()
@@ -433,11 +376,9 @@ object AdManager {
         }
     }
 
-    fun isRewardedAdExtraTryAvailable(): Boolean {
-        return rewardedAdExtraTry != null || interstitialRewardFallback != null
-    }
+    // Seules les vraies annonces Rewarded donnent une récompense : récompenser un
+    // interstitiel classique est interdit par le règlement AdMob.
+    fun isRewardedAdExtraTryAvailable(): Boolean = rewardedAdExtraTry != null
 
-    fun isRewardedAdSolutionAvailable(): Boolean {
-        return rewardedAdSolution != null || interstitialRewardFallback != null
-    }
+    fun isRewardedAdSolutionAvailable(): Boolean = rewardedAdSolution != null
 }

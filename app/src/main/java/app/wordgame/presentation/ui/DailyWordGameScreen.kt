@@ -244,6 +244,10 @@ fun DailyWordGameScreen(
                 currentGuessLength = uiState.currentGuess.length
             )
 
+            // Espace libre entre le clavier et la bannière : sinon les joueurs qui tapent
+            // vite cliquent la pub par accident (trafic invalide).
+            Spacer(modifier = Modifier.height(24.dp))
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -12,8 +12,8 @@ android {
         applicationId = "app.wordgame"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.1"
+        versionCode = 7
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -70,4 +70,11 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+// Mise à jour obligatoire (Google Play In-App Updates)
+dependencies {
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
+    // Fragment >= 1.3 requis pour registerForActivityResult (écran de mise à jour)
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
 }

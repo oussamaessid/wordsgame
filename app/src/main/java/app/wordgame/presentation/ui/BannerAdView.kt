@@ -45,9 +45,10 @@ fun BannerAdView(
                     loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
                 }
             },
+            // 50dp = taille réelle d'AdSize.BANNER : une bannière coupée est interdite par AdMob.
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                .height(50.dp)
         )
     }
 }

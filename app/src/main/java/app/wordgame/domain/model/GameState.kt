@@ -8,5 +8,7 @@ data class GameState(
     val won: Boolean,
     val gameStartTime: Long = 0L,
     val gameEndTime: Long = 0L,
-    val extraTriesGranted: Int = 0
+    val extraTriesGranted: Int = 0,
+    /** Active play time at the last save; -1 for states saved before the timer could pause. */
+    val elapsedMs: Long = -1L
 )

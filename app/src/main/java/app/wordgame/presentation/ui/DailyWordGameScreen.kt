@@ -46,6 +46,23 @@ fun DailyWordGameScreen(
         viewModel.initializeGame(language)
     }
 
+    // Le minuteur ne tourne que lorsque l'écran de jeu est visible.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.resumeTimer()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.pauseTimer()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.pauseTimer()
+        }
+    }
+
     LaunchedEffect(uiState.invalidWordError) {
         if (uiState.invalidWordError) {
             delay(1800)

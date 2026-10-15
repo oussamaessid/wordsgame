@@ -116,7 +116,10 @@ class GameViewModel(
                 keyboardStates[language]?.clear()
             }
             val current = _uiState.value
-            val start = current.gameStartTime.takeIf { it > 0 } ?: System.currentTimeMillis()
+            val now = System.currentTimeMillis()
+            val pausedElapsed = savedState?.elapsedMs?.takeIf { !current.gameOver && it >= 0 && savedState.word == targetWord && savedState.date == today }
+            // Resume from the saved active time so time spent away from the game is not counted.
+            val start = pausedElapsed?.let { now - it } ?: current.gameStartTime.takeIf { it > 0 } ?: now
             timer = app.wordgame.domain.model.GameTimer(start, System.currentTimeMillis(), android.os.SystemClock.elapsedRealtime())
             if (current.gameOver) timer?.restoreFinished((current.gameEndTime - start).coerceAtLeast(0))
             _uiState.value = current.copy(gameStartTime = start, isLoading = false, rankingReady = true)
@@ -127,6 +130,28 @@ class GameViewModel(
             saveGameState()
             players.syncScores()
         }
+    }
+
+    // ─────────────────────────────────────────────
+    //  MINUTEUR (pause hors de l'écran de jeu)
+    // ─────────────────────────────────────────────
+
+    fun pauseTimer() {
+        val state = _uiState.value
+        val t = timer ?: return
+        if (state.gameOver || state.isLoading) return
+        val elapsed = t.pause(android.os.SystemClock.elapsedRealtime())
+        _uiState.value = state.copy(gameStartTime = System.currentTimeMillis() - elapsed)
+        saveGameState()
+    }
+
+    fun resumeTimer() {
+        val state = _uiState.value
+        val t = timer ?: return
+        if (state.gameOver || state.isLoading) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        t.resume(now)
+        _uiState.value = state.copy(gameStartTime = System.currentTimeMillis() - t.elapsed(now))
     }
 
     // ─────────────────────────────────────────────
@@ -346,6 +371,7 @@ class GameViewModel(
         val s = _uiState.value
         val language = currentLanguage
         val day = playDay
+        val elapsed = timer?.elapsed(android.os.SystemClock.elapsedRealtime()) ?: -1L
         viewModelScope.launch {
             val gs = app.wordgame.domain.model.GameState(
                 date = day,
@@ -355,7 +381,8 @@ class GameViewModel(
                 won = s.won,
                 gameStartTime = s.gameStartTime,
                 gameEndTime = s.gameEndTime,
-                extraTriesGranted = s.extraTriesGranted
+                extraTriesGranted = s.extraTriesGranted,
+                elapsedMs = elapsed
             )
             saveGameStateUseCase(gs, language)
         }

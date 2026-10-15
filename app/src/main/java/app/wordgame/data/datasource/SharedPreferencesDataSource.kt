@@ -15,6 +15,7 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
             putLong("gameStartTime", state.gameStartTime)
             putLong("gameEndTime", state.gameEndTime)
             putInt("extraTriesGranted", state.extraTriesGranted) // ✅ FIX
+            putLong("elapsedMs", state.elapsedMs)
             check(commit())
         }
     }
@@ -39,7 +40,8 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
             won = won,
             gameStartTime = gameStartTime,
             gameEndTime = gameEndTime,
-            extraTriesGranted = extraTriesGranted // ✅ FIX
+            extraTriesGranted = extraTriesGranted, // ✅ FIX
+            elapsedMs = prefs.getLong("elapsedMs", -1L)
         )
     }
 

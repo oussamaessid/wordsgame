@@ -29,4 +29,16 @@ class PlayerRankingTest {
         assertEquals(3000L, timer.stop(1100))
         assertEquals(3000L, timer.elapsed(9999))
     }
+
+    @Test
+    fun timerDoesNotCountPausedTime() {
+        val timer = GameTimer(0, 0, 0)
+        assertEquals(1000L, timer.pause(1000))
+        assertEquals(1000L, timer.elapsed(60000))
+        timer.resume(60000)
+        assertEquals(1500L, timer.elapsed(60500))
+        assertEquals(1500L, timer.stop(60500))
+        timer.resume(70000)
+        assertEquals(1500L, timer.elapsed(90000))
+    }
 }

@@ -12,8 +12,8 @@ android {
         applicationId = "app.wordgame"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.1.1"
+        versionCode = 8
+        versionName = "1.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -81,7 +81,16 @@ dependencies {
 }
 
 val firebaseAssets = layout.buildDirectory.dir("generated/firebaseAssets")
+// Sans ce fichier (ignoré par git), le classement est désactivé dans l'app : on bloque le build.
+val checkFirebaseConfig by tasks.registering {
+    val config = file("google-services.json")
+    doLast {
+        if (!config.exists()) throw GradleException(
+            "app/google-services.json manquant : copiez-le dans le dossier app/ (Firebase Console → Paramètres du projet), sinon le classement ne fonctionnera pas.")
+    }
+}
 val prepareFirebaseConfig by tasks.registering(Copy::class) {
+    dependsOn(checkFirebaseConfig)
     from("google-services.json")
     into(firebaseAssets)
 }

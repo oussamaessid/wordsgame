@@ -5,7 +5,7 @@ class ValidateGuessUseCase {
         val letterStates = guess.mapIndexed { index, letter ->
             getLetterState(letter, index, targetWord, guess)
         }
-        return _root_ide_package_.app.wordgame.domain.model.GuessResult(
+        return app.wordgame.domain.model.GuessResult(
             guess = guess,
             letterStates = letterStates,
             isCorrect = guess == targetWord
@@ -14,11 +14,11 @@ class ValidateGuessUseCase {
 
     private fun getLetterState(letter: Char, position: Int, targetWord: String, guess: String): app.wordgame.domain.model.LetterState {
         if (targetWord[position] == letter) {
-            return _root_ide_package_.app.wordgame.domain.model.LetterState.CORRECT
+            return app.wordgame.domain.model.LetterState.CORRECT
         }
 
         if (!targetWord.contains(letter)) {
-            return _root_ide_package_.app.wordgame.domain.model.LetterState.WRONG
+            return app.wordgame.domain.model.LetterState.WRONG
         }
 
         val countInTarget = targetWord.count { it == letter }
@@ -34,9 +34,9 @@ class ValidateGuessUseCase {
         }
 
         if (correctCount + yellowCountBefore >= countInTarget) {
-            return _root_ide_package_.app.wordgame.domain.model.LetterState.WRONG
+            return app.wordgame.domain.model.LetterState.WRONG
         }
 
-        return _root_ide_package_.app.wordgame.domain.model.LetterState.PRESENT
+        return app.wordgame.domain.model.LetterState.PRESENT
     }
 }

@@ -31,7 +31,11 @@ fun StatsDialog(
     onDismiss: () -> Unit,
     language: app.wordgame.domain.model.Language,
     gameStartTime: Long = 0L,
-    gameEndTime: Long = 0L
+    gameEndTime: Long = 0L,
+    onRanking: (() -> Unit)? = null,
+    day: String = app.wordgame.domain.model.PlayerPeriods.today().toString(),
+    guesses: List<String> = emptyList(),
+    maxAttempts: Int = 6
 ) {
     val config = LocalConfiguration.current
     val screenHeightDp = config.screenHeightDp
@@ -46,7 +50,7 @@ fun StatsDialog(
     // Temps écoulé
     val timeElapsed = if (gameStartTime > 0 && gameEndTime > 0) {
         val diffMs  = gameEndTime - gameStartTime
-        val minutes = (diffMs / (1000 * 60)) % 60
+        val minutes = diffMs.coerceAtLeast(0) / (1000 * 60)
         val seconds = (diffMs / 1000) % 60
         String.format("%02d:%02d", minutes, seconds)
     } else {
@@ -60,7 +64,7 @@ fun StatsDialog(
         }
     }
 
-    val translations = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) {
+    val translations = if (language == app.wordgame.domain.model.Language.FRENCH) {
         mapOf(
             "victory"      to "🎉 Félicitations ! 🎉",
             "defeat"       to "😢 Dommage !",
@@ -124,6 +128,13 @@ fun StatsDialog(
                 verticalArrangement = Arrangement.spacedBy(itemSpacing)
             ) {
 
+                if (onRanking != null) {
+                    FilledTonalIconButton(onClick = onRanking, modifier = Modifier.align(Alignment.End)) {
+                        Icon(androidx.compose.ui.res.painterResource(app.wordgame.R.drawable.ic_trophy),
+                            contentDescription = if (language == app.wordgame.domain.model.Language.FRENCH) "Classements" else "Leaderboards",
+                            tint = Color(0xFFBA8518))
+                    }
+                }
                 // ── Titre victoire / défaite ─────────────────────────────────
                 if (gameOver) {
                     Text(
@@ -241,6 +252,25 @@ fun StatsDialog(
                         isVerySmall = isVerySmall,
                         isSmall = isSmall
                     )
+                }
+
+                if (gameOver) {
+                    val profile = app.wordgame.di.AppContainer.players.currentProfile
+                    val validator = app.wordgame.domain.usecase.ValidateGuessUseCase()
+                    val grid = guesses.filter { it.length == targetWord.length && it.length == 5 }.map { guess ->
+                        validator(guess, targetWord).letterStates.map { state -> when (state) {
+                            app.wordgame.domain.model.LetterState.CORRECT -> app.wordgame.sharing.ShareTile.CORRECT
+                            app.wordgame.domain.model.LetterState.PRESENT -> app.wordgame.sharing.ShareTile.PRESENT
+                            else -> app.wordgame.sharing.ShareTile.ABSENT
+                        } }
+                    }
+                    ShareResultButtons(app.wordgame.sharing.ShareResult(
+                        game = "Words Game", player = profile.name, day = day,
+                        category = if (language == app.wordgame.domain.model.Language.FRENCH) "Mot du jour · Français" else "Daily word · English",
+                        won = won, attempts = attempts, maxAttempts = maxAttempts,
+                        durationMs = (gameEndTime - gameStartTime).takeIf { gameStartTime > 0 && gameEndTime > 0 && it > 0 },
+                        english = language == app.wordgame.domain.model.Language.ENGLISH, wordGame = true,
+                        grid = grid, avatarResource = AvatarGallery.icons.getOrElse(profile.avatar) { AvatarGallery.icons[11] }))
                 }
 
                 CountdownTimer(
@@ -377,8 +407,8 @@ fun StatBox(
 
 
 private fun calculateTimeUntilMidnight(): String {
-    val now = Calendar.getInstance()
-    val midnight = Calendar.getInstance().apply {
+    val now = Calendar.getInstance(java.util.TimeZone.getTimeZone("Africa/Tunis"))
+    val midnight = Calendar.getInstance(java.util.TimeZone.getTimeZone("Africa/Tunis")).apply {
         set(Calendar.HOUR_OF_DAY, 23)
         set(Calendar.MINUTE, 59)
         set(Calendar.SECOND, 59)

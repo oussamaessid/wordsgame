@@ -20,7 +20,7 @@ fun LanguageSelectionScreen(onLanguageSelected: (app.wordgame.domain.model.Langu
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .systemBarsPadding()
+            .navigationBarsPadding()
     ) {
         Box(
             modifier = Modifier
@@ -89,14 +89,14 @@ fun LanguageSelectionScreen(onLanguageSelected: (app.wordgame.domain.model.Langu
                         horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
                     ) {
                         LanguageButton(
-                            language = _root_ide_package_.app.wordgame.domain.model.Language.FRENCH,
-                            onClick = { onLanguageSelected(_root_ide_package_.app.wordgame.domain.model.Language.FRENCH) },
+                            language = app.wordgame.domain.model.Language.FRENCH,
+                            onClick = { onLanguageSelected(app.wordgame.domain.model.Language.FRENCH) },
                             modifier = Modifier.weight(1f)
                         )
 
                         LanguageButton(
-                            language = _root_ide_package_.app.wordgame.domain.model.Language.ENGLISH,
-                            onClick = { onLanguageSelected(_root_ide_package_.app.wordgame.domain.model.Language.ENGLISH) },
+                            language = app.wordgame.domain.model.Language.ENGLISH,
+                            onClick = { onLanguageSelected(app.wordgame.domain.model.Language.ENGLISH) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -140,7 +140,7 @@ fun LanguageButton(
         modifier = modifier.height(70.dp),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) Color(0xFF1976D2) else Color(0xFF2196F3),
+            containerColor = if (language == app.wordgame.domain.model.Language.FRENCH) Color(0xFF1976D2) else Color(0xFF2196F3),
             contentColor = Color.White
         ),
         elevation = ButtonDefaults.buttonElevation(
@@ -153,7 +153,7 @@ fun LanguageButton(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) "🇫🇷" else "🇬🇧",
+                text = if (language == app.wordgame.domain.model.Language.FRENCH) "🇫🇷" else "🇬🇧",
                 fontSize = 28.sp
             )
             Text(

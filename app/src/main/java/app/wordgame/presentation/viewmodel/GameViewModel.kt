@@ -23,6 +23,7 @@ data class GameUiState(
     val showRewardedAdDialog: Boolean = false,
     val extraTriesGranted: Int = 0,
     val noInternetError: Boolean = false,
+    val rankingReady: Boolean = false,
     val invalidWordError: Boolean = false
 ) {
     /** Nombre total de lignes visibles dans la grille (4, 5 ou 6) */
@@ -48,6 +49,12 @@ class GameViewModel(
         const val MAX_TOTAL_ATTEMPTS = BASE_ATTEMPTS + MAX_EXTRA_TRIES  // = 6
     }
 
+    private val players get() = app.wordgame.di.AppContainer.players
+    val gameDay: String get() = playDay
+    private var playDay = app.wordgame.domain.model.PlayerPeriods.today().toString()
+    private var initializeJob: kotlinx.coroutines.Job? = null
+    private var timer: app.wordgame.domain.model.GameTimer? = null
+    fun elapsedMs(): Long = timer?.elapsed(android.os.SystemClock.elapsedRealtime()) ?: 0
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
@@ -65,7 +72,10 @@ class GameViewModel(
         currentLanguage = language
         keyboardStates.putIfAbsent(language, mutableMapOf())
 
-        viewModelScope.launch {
+        initializeJob?.cancel()
+        playDay = app.wordgame.domain.model.PlayerPeriods.today().toString()
+        _uiState.value = GameUiState()
+        initializeJob = viewModelScope.launch {
             val success = repository.loadWordsFromUrl()
 
             if (!success) {
@@ -73,7 +83,7 @@ class GameViewModel(
                 return@launch
             }
 
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            val today = playDay
             val targetWord = getDailyWordUseCase(language, today)
             val savedState = loadGameStateUseCase(language, today)
             val stats = loadStatsUseCase(language)
@@ -105,6 +115,17 @@ class GameViewModel(
                 )
                 keyboardStates[language]?.clear()
             }
+            val current = _uiState.value
+            val start = current.gameStartTime.takeIf { it > 0 } ?: System.currentTimeMillis()
+            timer = app.wordgame.domain.model.GameTimer(start, System.currentTimeMillis(), android.os.SystemClock.elapsedRealtime())
+            if (current.gameOver) timer?.restoreFinished((current.gameEndTime - start).coerceAtLeast(0))
+            _uiState.value = current.copy(gameStartTime = start, isLoading = false, rankingReady = true)
+            if (current.gameOver && savedState?.word == targetWord) {
+                players.record(language, java.time.LocalDate.parse(playDay), current.won,
+                    (current.gameEndTime - start).coerceAtLeast(1))
+            }
+            saveGameState()
+            players.syncScores()
         }
     }
 
@@ -114,12 +135,12 @@ class GameViewModel(
 
     fun onKeyPressed(key: String) {
         val state = _uiState.value
-        if (state.gameOver) return
+        if (state.gameOver || state.isLoading || !state.rankingReady) return
 
-        when (key.uppercase()) {
+        when (key.uppercase(Locale.ROOT)) {
             "ENTER"           -> handleEnter()
             "⌫", "BACKSPACE" -> handleDelete()
-            else              -> if (key.length == 1 && key[0].isLetter()) handleLetterInput(key.uppercase())
+            else              -> if (key.length == 1 && key[0].isLetter()) handleLetterInput(key.uppercase(Locale.ROOT))
         }
     }
 
@@ -163,7 +184,7 @@ class GameViewModel(
 
         // ✅ VICTOIRE
         if (result.isCorrect) {
-            val endTime = System.currentTimeMillis()
+            val endTime = _uiState.value.gameStartTime + (timer?.stop(android.os.SystemClock.elapsedRealtime()) ?: 0)
             _uiState.value = _uiState.value.copy(
                 won = true,
                 gameOver = true,
@@ -197,7 +218,7 @@ class GameViewModel(
     // ─────────────────────────────────────────────
 
     private fun finishLost() {
-        val endTime = System.currentTimeMillis()
+        val endTime = _uiState.value.gameStartTime + (timer?.stop(android.os.SystemClock.elapsedRealtime()) ?: 0)
         _uiState.value = _uiState.value.copy(
             gameOver = true,
             won = false,
@@ -207,11 +228,17 @@ class GameViewModel(
     }
 
     private fun handleGameOver(won: Boolean) {
+        val finished = _uiState.value
+        players.record(currentLanguage, java.time.LocalDate.parse(playDay), won,
+            (finished.gameEndTime - finished.gameStartTime).coerceAtLeast(1))
+        // Persist the terminal result before starting asynchronous synchronization.
+        saveGameState()
         viewModelScope.launch {
             val newStats = updateStatsUseCase(_uiState.value.stats, won)
             _uiState.value = _uiState.value.copy(stats = newStats, showStats = true)
             saveStatsUseCase(newStats, currentLanguage)
             saveGameState()
+            players.syncScores()
         }
     }
 
@@ -307,7 +334,7 @@ class GameViewModel(
 
     fun getKeyState(key: String): app.wordgame.domain.model.LetterState {
         if (key.length != 1) return app.wordgame.domain.model.LetterState.EMPTY
-        return keyboardStates[currentLanguage]?.get(key.uppercase())
+        return keyboardStates[currentLanguage]?.get(key.uppercase(Locale.ROOT))
             ?: app.wordgame.domain.model.LetterState.EMPTY
     }
 
@@ -316,10 +343,12 @@ class GameViewModel(
     // ─────────────────────────────────────────────
 
     private fun saveGameState() {
+        val s = _uiState.value
+        val language = currentLanguage
+        val day = playDay
         viewModelScope.launch {
-            val s = _uiState.value
             val gs = app.wordgame.domain.model.GameState(
-                date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+                date = day,
                 word = s.targetWord,
                 guesses = s.guesses,
                 gameOver = s.gameOver,
@@ -328,7 +357,7 @@ class GameViewModel(
                 gameEndTime = s.gameEndTime,
                 extraTriesGranted = s.extraTriesGranted
             )
-            saveGameStateUseCase(gs, currentLanguage)
+            saveGameStateUseCase(gs, language)
         }
     }
 }

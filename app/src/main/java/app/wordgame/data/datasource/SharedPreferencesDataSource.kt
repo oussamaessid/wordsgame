@@ -15,7 +15,7 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
             putLong("gameStartTime", state.gameStartTime)
             putLong("gameEndTime", state.gameEndTime)
             putInt("extraTriesGranted", state.extraTriesGranted) // ✅ FIX
-            apply()
+            check(commit())
         }
     }
 
@@ -50,7 +50,7 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
             putInt("wins", stats.wins)
             putInt("currentStreak", stats.currentStreak)
             putInt("maxStreak", stats.maxStreak)
-            apply()
+            check(commit())
         }
     }
 
@@ -69,7 +69,7 @@ class SharedPreferencesDataSource(private val context: Context) : LocalDataSourc
         prefs.edit().apply {
             putString("english_words", englishWords.joinToString(","))
             putString("french_words", frenchWords.joinToString(","))
-            apply()
+            check(commit())
         }
     }
 

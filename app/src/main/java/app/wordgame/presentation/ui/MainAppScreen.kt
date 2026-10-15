@@ -1,6 +1,7 @@
 package app.wordgame.presentation.ui
 
 import android.content.Context
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 
@@ -29,10 +30,23 @@ fun MainAppScreen() {
     var selectedLanguage by remember { mutableStateOf(savedLanguage) }
     var currentScreen by remember {
         mutableStateOf<Screen>(
-            if (savedLanguage != null) Screen.DailyWordGame else Screen.LanguageSelection
+            Screen.LanguageSelection
         )
     }
 
+    val players = app.wordgame.di.AppContainer.players
+    var playerPage by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(Unit) { players.syncScores() }
+    androidx.activity.compose.BackHandler(enabled = playerPage.isNotEmpty() && playerPage != "setup") { playerPage = "" }
+    if (playerPage.isNotEmpty()) {
+        PlayerScreen(players, ranking = playerPage == "ranking", setup = playerPage == "setup", onBack = {
+            players.completeSetup(); playerPage = ""
+        })
+        return
+    }
+    androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.fillMaxSize()) {
+        PlayerToolbar(players, onProfile = { playerPage = "profile" }, onRanking = { playerPage = "ranking" })
+        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) {
     when (currentScreen) {
         Screen.LanguageSelection -> {
             LanguageSelectionScreen(
@@ -47,6 +61,7 @@ fun MainAppScreen() {
             selectedLanguage?.let { language ->
                 DailyWordGameScreen(
                     language = language,
+                    onRanking = { playerPage = "ranking" },
                     onBackToLanguageSelection = {
                         currentScreen = Screen.LanguageSelection
                     }
@@ -55,3 +70,5 @@ fun MainAppScreen() {
         }
     }
 }
+        }
+    }

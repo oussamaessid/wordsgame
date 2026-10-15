@@ -14,10 +14,6 @@ class GameRepositoryImpl(
     private var englishWords: List<String> = emptyList()
     private var frenchWords: List<String> = emptyList()
 
-    private val startDate: Date by lazy {
-        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).parse("01/01/2026")!!
-    }
-
     suspend fun loadWordsFromUrl(
         url: String = "https://raw.githubusercontent.com/oussamaessid/WordsData/refs/heads/main/words.json"
     ): Boolean {
@@ -28,10 +24,10 @@ class GameRepositoryImpl(
                 val json = JSONObject(jsonText)
 
                 val newEnglish = List(json.getJSONArray("english").length()) { i ->
-                    json.getJSONArray("english").getString(i).uppercase(Locale.getDefault())
+                    json.getJSONArray("english").getString(i).uppercase(Locale.ROOT)
                 }
                 val newFrench = List(json.getJSONArray("french").length()) { i ->
-                    json.getJSONArray("french").getString(i).uppercase(Locale.getDefault())
+                    json.getJSONArray("french").getString(i).uppercase(Locale.ROOT)
                 }
 
                 englishWords = newEnglish
@@ -76,17 +72,16 @@ class GameRepositoryImpl(
     }
 
     override fun getDailyWord(language: app.wordgame.domain.model.Language, date: String): String {
-        val wordList = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) frenchWords else englishWords
+        val wordList = if (language == app.wordgame.domain.model.Language.FRENCH) frenchWords else englishWords
         if (wordList.isEmpty()) return "ABCDE"
 
-        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(date)!!
-        val daysSinceStart = ((currentDate.time - startDate.time) / (1000 * 60 * 60 * 24)).toInt()
-        val index = daysSinceStart % wordList.size
+        val days = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.of(2026, 1, 1), java.time.LocalDate.parse(date))
+        val index = Math.floorMod(days, wordList.size.toLong()).toInt()
         return wordList[index]
     }
 
     override fun isValidWord(word: String, language: app.wordgame.domain.model.Language): Boolean {
-        val wordList = if (language == _root_ide_package_.app.wordgame.domain.model.Language.FRENCH) frenchWords else englishWords
-        return wordList.contains(word.uppercase(Locale.getDefault()))
+        val wordList = if (language == app.wordgame.domain.model.Language.FRENCH) frenchWords else englishWords
+        return wordList.contains(word.uppercase(Locale.ROOT))
     }
 }

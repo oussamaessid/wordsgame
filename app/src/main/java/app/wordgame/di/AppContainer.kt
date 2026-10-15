@@ -12,36 +12,40 @@ object AppContainer {
     // Impl concrète (pour le ViewModel)
     private lateinit var gameRepositoryImpl: app.wordgame.data.repository.GameRepositoryImpl
 
+    lateinit var players: app.wordgame.data.repository.PlayerRepository
+        private set
+
     fun initialize(context: Context) {
+        players = app.wordgame.data.repository.PlayerRepository(context.getSharedPreferences("players", Context.MODE_PRIVATE), app.wordgame.data.repository.FirebasePlayers(context.applicationContext))
         localDataSource =
-            _root_ide_package_.app.wordgame.data.datasource.SharedPreferencesDataSource(context)
+            app.wordgame.data.datasource.SharedPreferencesDataSource(context)
 
         gameRepositoryImpl =
-            _root_ide_package_.app.wordgame.data.repository.GameRepositoryImpl(localDataSource)
+            app.wordgame.data.repository.GameRepositoryImpl(localDataSource)
         gameRepository = gameRepositoryImpl
     }
 
     fun provideViewModelFactory(): app.wordgame.presentation.viewmodel.GameViewModelFactory {
-        return _root_ide_package_.app.wordgame.presentation.viewmodel.GameViewModelFactory(
+        return app.wordgame.presentation.viewmodel.GameViewModelFactory(
             repository = gameRepositoryImpl,
-            getDailyWordUseCase = _root_ide_package_.app.wordgame.domain.usecase.GetDailyWordUseCase(
+            getDailyWordUseCase = app.wordgame.domain.usecase.GetDailyWordUseCase(
                 gameRepository
             ),
-            saveGameStateUseCase = _root_ide_package_.app.wordgame.domain.usecase.SaveGameStateUseCase(
+            saveGameStateUseCase = app.wordgame.domain.usecase.SaveGameStateUseCase(
                 gameRepository
             ),
-            loadGameStateUseCase = _root_ide_package_.app.wordgame.domain.usecase.LoadGameStateUseCase(
+            loadGameStateUseCase = app.wordgame.domain.usecase.LoadGameStateUseCase(
                 gameRepository
             ),
-            saveStatsUseCase = _root_ide_package_.app.wordgame.domain.usecase.SaveStatsUseCase(
+            saveStatsUseCase = app.wordgame.domain.usecase.SaveStatsUseCase(
                 gameRepository
             ),
-            loadStatsUseCase = _root_ide_package_.app.wordgame.domain.usecase.LoadStatsUseCase(
+            loadStatsUseCase = app.wordgame.domain.usecase.LoadStatsUseCase(
                 gameRepository
             ),
-            validateGuessUseCase = _root_ide_package_.app.wordgame.domain.usecase.ValidateGuessUseCase(),
-            updateStatsUseCase = _root_ide_package_.app.wordgame.domain.usecase.UpdateStatsUseCase(),
-            isValidWordUseCase = _root_ide_package_.app.wordgame.domain.usecase.IsValidWordUseCase(
+            validateGuessUseCase = app.wordgame.domain.usecase.ValidateGuessUseCase(),
+            updateStatsUseCase = app.wordgame.domain.usecase.UpdateStatsUseCase(),
+            isValidWordUseCase = app.wordgame.domain.usecase.IsValidWordUseCase(
                 gameRepository
             )
         )

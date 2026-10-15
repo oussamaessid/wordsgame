@@ -28,8 +28,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         forceUpdate.check { }
 
-        _root_ide_package_.app.wordgame.di.AppContainer.initialize(this)
-
         // BuildConfig.DEBUG active automatiquement les annonces de test en développement
         app.wordgame.ads.AdManager.initialize(this, debugMode = BuildConfig.DEBUG)
 
@@ -72,12 +70,11 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding(),
+                        .fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     if (!showAppOpenAd) {
-                        _root_ide_package_.app.wordgame.presentation.ui.MainAppScreen()
+                        app.wordgame.presentation.ui.MainAppScreen()
                     }
                 }
             }

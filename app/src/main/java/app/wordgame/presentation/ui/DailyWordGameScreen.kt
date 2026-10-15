@@ -26,7 +26,8 @@ import kotlinx.coroutines.delay
 @Composable
 fun DailyWordGameScreen(
     language: app.wordgame.domain.model.Language,
-    onBackToLanguageSelection: () -> Unit
+    onBackToLanguageSelection: () -> Unit,
+    onRanking: () -> Unit = {}
 ) {
 
     BackHandler(enabled = true) {
@@ -134,7 +135,9 @@ fun DailyWordGameScreen(
                 onDismiss = onBackToLanguageSelection,
                 language = language,
                 gameStartTime = uiState.gameStartTime,
-                gameEndTime = uiState.gameEndTime
+                gameEndTime = uiState.gameEndTime,
+                onRanking = onRanking,
+                day = viewModel.gameDay, guesses = uiState.guesses, maxAttempts = uiState.maxAttempts
             )
         }
         return
@@ -161,7 +164,7 @@ fun DailyWordGameScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
-                .systemBarsPadding()
+                .navigationBarsPadding()
         ) {
             GameHeader(
                 title = if (language == app.wordgame.domain.model.Language.FRENCH) "MOT DU JOUR" else "DAILY WORD",
@@ -173,6 +176,10 @@ fun DailyWordGameScreen(
                 language = language
             )
 
+            var elapsed by remember { mutableLongStateOf(viewModel.elapsedMs()) }
+            LaunchedEffect(uiState.gameStartTime) { while (true) { elapsed = viewModel.elapsedMs(); delay(250) } }
+            Text("⏱ " + app.wordgame.domain.model.GameTimer.format(elapsed),
+                modifier = Modifier.align(Alignment.CenterHorizontally), color = Color(0xFF1976D2))
             val maxAttempts = uiState.maxAttempts
 
             BoxWithConstraints(
@@ -272,7 +279,9 @@ fun DailyWordGameScreen(
                 onDismiss = { viewModel.toggleStatsDialog(false) },
                 language = language,
                 gameStartTime = uiState.gameStartTime,
-                gameEndTime = uiState.gameEndTime
+                gameEndTime = uiState.gameEndTime,
+                onRanking = onRanking,
+                day = viewModel.gameDay, guesses = uiState.guesses, maxAttempts = uiState.maxAttempts
             )
         }
 

@@ -30,6 +30,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -78,3 +79,12 @@ dependencies {
     // Fragment >= 1.3 requis pour registerForActivityResult (écran de mise à jour)
     implementation("androidx.fragment:fragment-ktx:1.8.5")
 }
+
+val firebaseAssets = layout.buildDirectory.dir("generated/firebaseAssets")
+val prepareFirebaseConfig by tasks.registering(Copy::class) {
+    from("google-services.json")
+    into(firebaseAssets)
+}
+android.sourceSets["main"].assets.srcDir(firebaseAssets)
+tasks.named("preBuild") { dependsOn(prepareFirebaseConfig) }
+dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5") }

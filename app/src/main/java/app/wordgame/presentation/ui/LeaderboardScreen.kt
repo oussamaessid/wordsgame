@@ -33,7 +33,6 @@ import app.wordgame.domain.model.LeaderboardPlayer
 import app.wordgame.domain.model.PlayerPeriods
 import app.wordgame.domain.model.RankingPeriod
 import kotlinx.coroutines.CancellationException
-import org.json.JSONObject
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -50,7 +49,8 @@ internal data class LeaderboardViewState(
     val period: String = PlayerPeriods.today().toString(),
     val players: List<LeaderboardPlayer> = emptyList(),
     val loading: Boolean = false,
-    val hasMore: Boolean = false,
+    /** false = the player has no entry in this board yet; players then holds the top of the board. */
+    val ranked: Boolean = true,
     val error: Boolean = false,
     val cached: Boolean = false,
     val meName: String = "Joueur",
@@ -76,36 +76,32 @@ private fun LeaderboardRoute(
     var state by remember { mutableStateOf(LeaderboardViewState(mode, range, range.id(PlayerPeriods.today()), loading = true,
         me = repository.currentProfile.id, meName = repository.currentProfile.name, meAvatar = repository.currentProfile.avatar)) }
     var revision by remember { mutableStateOf(0) }
-    var append by remember { mutableStateOf(false) }
-    var cursor by remember { mutableStateOf<JSONObject?>(null) }
     LaunchedEffect(revision) {
         state = state.copy(loading = true, error = false)
         try {
             // Silent: network problems only leave the cached or empty list on screen.
-            if (!append) repository.syncScores()
-            val page = repository.globalRanking(range, mode, if (append) cursor else null)
+            repository.syncScores()
+            val page = repository.globalRanking(range, mode)
             check(page.getString("mode") == (mode?.name ?: PlayerRepository.ALL))
             val entries = page.getJSONArray("entries")
-            val incoming = (0 until entries.length()).map { index ->
+            val players = (0 until entries.length()).map { index ->
                 val row = entries.getJSONObject(index)
                 LeaderboardPlayer(row.getString("uid"), row.getString("name"), row.getInt("avatar"),
-                    row.getInt("correctCount"), row.getLong("totalMs"))
+                    row.getInt("correctCount"), row.getLong("totalMs"), row.optInt("rank", index + 1))
             }
-            cursor = page.optJSONObject("cursor")
-            state = state.copy(players = if (append) (state.players + incoming).distinctBy { it.uid } else incoming,
-                period = page.getString("period"), loading = false, hasMore = cursor != null, cached = page.optBoolean("cached"))
+            state = state.copy(players = players, period = page.getString("period"), loading = false,
+                ranked = page.optBoolean("ranked", players.any { it.uid == state.me }), cached = page.optBoolean("cached"))
         } catch (e: CancellationException) { throw e }
-        catch (_: Exception) { state = state.copy(loading = false, hasMore = false, error = true) }
+        catch (_: Exception) { state = state.copy(loading = false, error = true) }
     }
-    LeaderboardLayout(state, onBack, onPeriod, onMode,
-        onRefresh = { append = false; revision++ }, onLoadMore = { append = true; revision++ })
+    LeaderboardLayout(state, onBack, onPeriod, onMode, onRefresh = { revision++ })
 }
 
 @Composable
 internal fun LeaderboardLayout(
     state: LeaderboardViewState, onBack: () -> Unit,
     onPeriod: (RankingPeriod) -> Unit, onMode: (Language?) -> Unit,
-    onRefresh: () -> Unit, onLoadMore: () -> Unit
+    onRefresh: () -> Unit
 ) {
     Box(Modifier.fillMaxSize().background(Color(0xFFF3F5FA))) {
         Box(Modifier.fillMaxWidth().height(310.dp).background(Brush.linearGradient(
@@ -139,7 +135,7 @@ internal fun LeaderboardLayout(
                 }
             }
             item {
-                val ownIndex = state.players.indexOfFirst { it.uid == state.me }
+                val own = state.players.firstOrNull { it.uid == state.me }
                 Surface(shape = RoundedCornerShape(22.dp), color = Color.White, shadowElevation = 4.dp) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -148,11 +144,11 @@ internal fun LeaderboardLayout(
                             Text("VOTRE PROFIL", color = RankingMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
                             Text(state.meName, color = RankingInk, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(if (ownIndex >= 0) "${state.players[ownIndex].wins} victoire(s) · ${resultTime(state.players[ownIndex].durationMs)}"
+                            Text(if (own != null) "${own.wins} victoire(s) · ${resultTime(own.durationMs)}"
                                 else "Chaque victoire compte", color = RankingMuted, fontSize = 12.sp)
                         }
-                        if (ownIndex >= 0) Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFFFF1CB)) {
-                            Text("#${ownIndex + 1}", Modifier.padding(12.dp), color = Color(0xFF996716), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                        if (own != null) Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFFFF1CB)) {
+                            Text("#${own.rank}", Modifier.padding(12.dp), color = Color(0xFF996716), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
                         }
                     }
                 }
@@ -176,7 +172,7 @@ internal fun LeaderboardLayout(
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(periodLabel(state.period, state.range), color = RankingInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Tous les joueurs · ${state.mode.label()}", color = RankingMuted, fontSize = 12.sp)
+                                Text("${if (state.ranked) "Autour de vous" else "Meilleurs joueurs"} · ${state.mode.label()}", color = RankingMuted, fontSize = 12.sp)
                             }
                             IconButton(onClick = onRefresh, enabled = !state.loading) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Actualiser le classement", tint = RankingPurple)
@@ -190,11 +186,8 @@ internal fun LeaderboardLayout(
             }
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Les champions", color = RankingInk, fontSize = 19.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f))
-                    if (!state.loading) {
-                        Text("${state.players.size} affiché${if (state.players.size == 1) "" else "s"}", color = RankingMuted, fontSize = 12.sp)
-                    }
+                    Text(if (state.ranked) "Votre position" else "Les champions", color = RankingInk, fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 }
             }
             when {
@@ -210,7 +203,11 @@ internal fun LeaderboardLayout(
                         action = onRefresh)
                 }
                 else -> {
-                    if (state.players.size >= 3) item { RankingPodium(state.players.take(3)) }
+                    if (!state.ranked) item {
+                        Text(if (state.mode == null) "Gagnez une partie pour entrer dans ce classement."
+                            else "Gagnez une partie en mode ${state.mode.label()} pour entrer dans ce classement.",
+                            color = RankingMuted, fontSize = 13.sp)
+                    }
                     item {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
                             Text("RANG / JOUEUR", Modifier.weight(1f), color = RankingMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -218,12 +215,7 @@ internal fun LeaderboardLayout(
                         }
                     }
                     itemsIndexed(state.players, key = { _, player -> player.uid }) { index, player ->
-                        RankingPlayerRow(index + 1, player, player.uid == state.me)
-                    }
-                    if (state.hasMore) item {
-                        OutlinedButton(onClick = onLoadMore, enabled = !state.loading, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (state.loading) "Chargement…" else "Voir plus de joueurs")
-                        }
+                        RankingPlayerRow(player.rank.takeIf { it > 0 } ?: (index + 1), player, player.uid == state.me)
                     }
                 }
             }
@@ -234,7 +226,7 @@ internal fun LeaderboardLayout(
                         Text("Les victoires d’abord, la rapidité ensuite.", color = RankingInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         Text("À égalité, le temps total le plus court passe devant. Général additionne les deux langues.",
                             color = RankingMuted, fontSize = 12.sp)
-                        Text("Périodes à l’heure de Tunis · pauses comprises", color = RankingMuted, fontSize = 10.sp)
+                        Text("Périodes à l’heure de Tunis · temps de jeu actif uniquement", color = RankingMuted, fontSize = 10.sp)
                     }
                 }
             }
@@ -270,34 +262,6 @@ private fun RankingStateCard(title: String, message: String, loading: Boolean = 
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Réessayer")
-            }
-        }
-    }
-}
-
-@Composable
-private fun RankingPodium(players: List<LeaderboardPlayer>) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-        listOf(1, 0, 2).forEach { index ->
-            val player = players[index]
-            val medal = listOf(Color(0xFFBB861A), Color(0xFF75869B), Color(0xFFB07C55))[index]
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (index == 0) Trophy(Modifier.padding(bottom = 6.dp).size(26.dp), Color(0xFFE7AD35))
-                Surface(shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
-                    color = if (index == 0) Color(0xFFFFF3D6) else Color.White,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, medal.copy(alpha = 0.22f))) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = if (index == 0) 22.dp else 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Surface(shape = CircleShape, border = androidx.compose.foundation.BorderStroke(3.dp, medal)) {
-                            Box(Modifier.padding(3.dp)) { PlayerAvatar(player.avatar, if (index == 0) 62.dp else 48.dp) }
-                        }
-                        Text(player.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp,
-                            color = RankingInk, fontWeight = FontWeight.Bold)
-                        Text("${player.wins} victoire${if (player.wins == 1) "" else "s"}", color = RankingMuted, fontSize = 11.sp)
-                        Text(resultTime(player.durationMs), color = RankingInk, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-                        Text("0${index + 1}", color = medal, fontSize = if (index == 0) 34.sp else 27.sp, fontWeight = FontWeight.Black)
-                    }
-                }
             }
         }
     }

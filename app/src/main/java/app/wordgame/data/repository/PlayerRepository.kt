@@ -121,52 +121,69 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
         syncScores()
         return true
     }
-    /** Top players of the current period. Never throws: falls back to the last cached page, then to an empty one. */
-    suspend fun globalRanking(range: RankingPeriod, mode: Language?, cursor: JSONObject? = null): JSONObject {
+    /**
+     * The current player's position with up to [NEIGHBOURS] players before and after, or the top
+     * players when they are not ranked yet. Never throws: falls back to the last cached page.
+     * Each entry carries its absolute rank.
+     */
+    suspend fun globalRanking(range: RankingPeriod, mode: Language?): JSONObject {
         val period = range.id(PlayerPeriods.today())
         val board = boardId(range, mode, period)
-        val empty = JSONObject().put("period", period).put("mode", mode?.name ?: ALL).put("entries", JSONArray())
+        val parent = "leaderboards/$board"
         check(globalEnabled) { "Firebase non configuré" }
         return try {
-            val query = JSONObject()
-                .put("from", JSONArray().put(JSONObject().put("collectionId", "entries")))
+            val me = profile().id
+            val mine = firebase!!.get("$parent/entries/$me")?.getJSONObject("fields")
+            val ranked = mine != null
+            var offset = 0L
+            var limit = NEIGHBOURS * 2 + 1
+            if (mine != null) {
+                val correct = mine.getJSONObject("correctCount").getString("integerValue").toLong()
+                val total = mine.getJSONObject("totalMs").getString("integerValue").toLong()
+                // Players ahead: more wins, or as many wins in less time.
+                val ahead = firebase.count(parent, JSONObject().put("from", entries())
+                    .put("where", compare("correctCount", "GREATER_THAN", correct))) +
+                    firebase.count(parent, JSONObject().put("from", entries()).put("where", JSONObject()
+                        .put("compositeFilter", JSONObject().put("op", "AND").put("filters", JSONArray()
+                            .put(compare("correctCount", "EQUAL", correct))
+                            .put(compare("totalMs", "LESS_THAN", total))))))
+                offset = (ahead - NEIGHBOURS).coerceAtLeast(0)
+                limit = (ahead - offset + 1 + NEIGHBOURS).toInt()
+            }
+            val query = JSONObject().put("from", entries())
                 .put("orderBy", JSONArray().put(order("correctCount", "DESCENDING"))
                     .put(order("totalMs", "ASCENDING")).put(order("__name__", "ASCENDING")))
-                .put("limit", PAGE_SIZE)
-            if (cursor != null) require(cursor.getString("board") == board)
-            if (cursor != null) query.put("startAt", JSONObject().put("before", false).put("values", JSONArray()
-                .put(JSONObject().put("integerValue", cursor.getLong("correctCount").toString()))
-                .put(JSONObject().put("integerValue", cursor.getLong("totalMs").toString()))
-                .put(JSONObject().put("referenceValue", cursor.getString("document")))))
-            val documents = firebase!!.query("leaderboards/$board", query)
-            val entries = JSONArray()
-            documents.forEach { document ->
+                .put("offset", offset).put("limit", limit)
+            val rows = JSONArray()
+            firebase.query(parent, query).forEachIndexed { index, document ->
                 val fields = document.getJSONObject("fields")
-                entries.put(JSONObject().put("uid", document.getString("name").substringAfterLast('/'))
+                rows.put(JSONObject().put("uid", document.getString("name").substringAfterLast('/'))
+                    .put("rank", offset + index + 1)
                     .put("name", fields.getJSONObject("name").getString("stringValue"))
                     .put("avatar", fields.optJSONObject("avatar")?.optString("integerValue")?.toIntOrNull() ?: PlayerAvatars.DEFAULT)
                     .put("correctCount", fields.getJSONObject("correctCount").getString("integerValue").toInt())
                     .put("totalMs", fields.getJSONObject("totalMs").getString("integerValue").toLong()))
             }
-            val last = entries.length() - 1
-            val page = empty.put("entries", entries).put("cursor", if (documents.size < PAGE_SIZE) JSONObject.NULL else
-                JSONObject().put("correctCount", entries.getJSONObject(last).getInt("correctCount"))
-                    .put("totalMs", entries.getJSONObject(last).getLong("totalMs"))
-                    .put("document", documents[last].getString("name")).put("board", board))
-            if (cursor == null) prefs.edit().putString("cache_$board", page.toString()).apply()
+            val page = JSONObject().put("period", period).put("mode", mode?.name ?: ALL)
+                .put("ranked", ranked).put("entries", rows)
+            prefs.edit().putString("cache_$board", page.toString()).apply()
             page
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) {
-            if (cursor != null) throw IllegalStateException("Classement indisponible")
             prefs.getString("cache_$board", null)?.let { runCatching { JSONObject(it).put("cached", true) }.getOrNull() }
                 ?: throw IllegalStateException("Classement indisponible")
         }
     }
+    private fun entries() = JSONArray().put(JSONObject().put("collectionId", "entries"))
+    private fun compare(field: String, op: String, value: Long) = JSONObject().put("fieldFilter", JSONObject()
+        .put("field", JSONObject().put("fieldPath", field)).put("op", op)
+        .put("value", JSONObject().put("integerValue", value.toString())))
     private fun order(field: String, direction: String) =
         JSONObject().put("field", JSONObject().put("fieldPath", field)).put("direction", direction)
 
     companion object {
-        private const val PAGE_SIZE = 50
+        /** Players shown before and after the current player. */
+        const val NEIGHBOURS = 2
         const val ALL = "ALL"
         /** Firestore board id, e.g. day_HARD_2026-10-14, week_ALL_2026-W42 or month_EASY_2026-10. */
         fun boardId(period: RankingPeriod, mode: Language?, id: String) = "${period.key}_${mode?.name ?: ALL}_$id"

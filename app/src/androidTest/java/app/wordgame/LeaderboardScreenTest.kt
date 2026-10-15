@@ -24,7 +24,7 @@ class LeaderboardScreenTest {
         var retries = 0
         compose.setContent {
             MaterialTheme { LeaderboardLayout(LeaderboardViewState(period = "2026-10-14"),
-                {}, {}, {}, { retries++ }, {}) }
+                {}, {}, {}, { retries++ }) }
         }
         compose.onNodeWithText("14 octobre 2026", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Classement indisponible").assertDoesNotExist()
@@ -36,7 +36,7 @@ class LeaderboardScreenTest {
         val players = listOf(LeaderboardPlayer("a", "Mina", 8, 2, 155400), LeaderboardPlayer("me", "Moi", 15, 1, 170100))
         compose.setContent {
             MaterialTheme { LeaderboardLayout(LeaderboardViewState(Language.ENGLISH, RankingPeriod.DAY, "2026-10-14", players, me = "me"),
-                {}, {}, {}, {}, {}) }
+                {}, {}, {}, {}) }
         }
         compose.onNodeWithText("C’est vous").performScrollTo().assertIsDisplayed()
     }
@@ -46,7 +46,7 @@ class LeaderboardScreenTest {
             var state by remember { mutableStateOf(LeaderboardViewState(period = "2026-10-14")) }
             MaterialTheme {
                 LeaderboardLayout(state, {}, { state = state.copy(range = it, period = it.id(java.time.LocalDate.of(2026, 10, 14))) },
-                    { state = state.copy(mode = it) }, {}, {})
+                    { state = state.copy(mode = it) }, {})
             }
         }
         compose.onNodeWithText("Mois").performClick().assertIsSelected()
@@ -54,7 +54,7 @@ class LeaderboardScreenTest {
         compose.onNodeWithText("Du 12 octobre au 18 octobre 2026").assertExists()
         for (mode in listOf("Français", "English", "Général")) {
             compose.onNodeWithText(mode).performClick().assertIsSelected()
-            compose.onNodeWithText("Tous les joueurs · $mode").assertExists()
+            compose.onNodeWithText("Autour de vous · $mode").assertExists()
         }
         compose.onNodeWithText("Aujourd’hui").performClick().assertIsSelected()
     }
@@ -67,13 +67,11 @@ class LeaderboardScreenTest {
             LeaderboardPlayer("d", "Un pseudo très long à vérifier", 42, 6, 151100))
         compose.setContent {
             MaterialTheme { LeaderboardLayout(LeaderboardViewState(Language.FRENCH, RankingPeriod.MONTH, "2026-10", players),
-                {}, {}, {}, {}, {}) }
+                {}, {}, {}, {}) }
         }
         compose.onAllNodesWithText("8 victoires")[0].assertIsDisplayed()
         compose.onAllNodesWithText("02:35.4")[0].assertIsDisplayed()
         screenshot("leaderboard-results-test-data.png")
-        compose.onNodeWithTag("leaderboard_list").performScrollToNode(hasText("RANG / JOUEUR"))
-        screenshot("leaderboard-podium-test-data.png")
         compose.onNodeWithTag("leaderboard_list").performScrollToNode(hasText("Un pseudo très long à vérifier"))
         compose.onNodeWithText("Un pseudo très long à vérifier").assertIsDisplayed()
     }

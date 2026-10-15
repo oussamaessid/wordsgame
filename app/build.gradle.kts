@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -80,20 +82,32 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.8.5")
 }
 
-val firebaseAssets = layout.buildDirectory.dir("generated/firebaseAssets")
-// Sans ce fichier (ignoré par git), le classement est désactivé dans l'app : on bloque le build.
-val checkFirebaseConfig by tasks.registering {
+// Clé API du classement : google-services.json s'il existe, sinon la propriété firebase.apiKey
+// (gradle.properties, local.properties ou ~/.gradle/gradle.properties).
+val firebaseApiKey: String = run {
     val config = file("google-services.json")
-    doLast {
-        if (!config.exists()) throw GradleException(
-            "app/google-services.json manquant : copiez-le dans le dossier app/ (Firebase Console → Paramètres du projet), sinon le classement ne fonctionnera pas.")
+    @Suppress("UNCHECKED_CAST")
+    val fromJson = if (config.exists()) runCatching {
+        val json = groovy.json.JsonSlurper().parse(config) as Map<String, Any?>
+        val client = (json["client"] as List<Map<String, Any?>>).first {
+            ((it["client_info"] as Map<String, Any?>)["android_client_info"] as Map<String, Any?>)["package_name"] == "app.wordgame"
+        }
+        ((client["api_key"] as List<Map<String, Any?>>).first())["current_key"] as String
+    }.getOrNull() else null
+    val local = Properties().apply {
+        rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
+    fromJson ?: (findProperty("firebase.apiKey") as String?) ?: local.getProperty("firebase.apiKey") ?: ""
+}
+android.defaultConfig {
+    buildConfigField("String", "FIREBASE_PROJECT_ID", "\"wordsgame-80893\"")
+    buildConfigField("String", "FIREBASE_API_KEY", "\"$firebaseApiKey\"")
+}
+// Un AAB/APK release sans clé aurait le classement désactivé : on bloque le build.
+tasks.matching { it.name.startsWith("pre") && it.name.endsWith("ReleaseBuild") }.configureEach {
+    doFirst {
+        if (firebaseApiKey.isBlank()) throw GradleException(
+            "Clé Firebase absente : ajoutez app/google-services.json ou firebase.apiKey=... dans local.properties, sinon le classement ne fonctionnera pas.")
     }
 }
-val prepareFirebaseConfig by tasks.registering(Copy::class) {
-    dependsOn(checkFirebaseConfig)
-    from("google-services.json")
-    into(firebaseAssets)
-}
-android.sourceSets["main"].assets.srcDir(firebaseAssets)
-tasks.named("preBuild") { dependsOn(prepareFirebaseConfig) }
 dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5") }

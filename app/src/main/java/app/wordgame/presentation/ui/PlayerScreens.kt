@@ -11,6 +11,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.PriorityHigh
+import androidx.compose.foundation.background
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.wordgame.data.repository.PlayerRepository
+import app.wordgame.data.repository.ProfileSaveResult
 import app.wordgame.domain.model.Language
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -39,7 +43,7 @@ fun PlayerScreen(repository: PlayerRepository, ranking: Boolean, setup: Boolean 
     LaunchedEffect(repository.currentProfile) {
         if (!edited) { name = repository.currentProfile.name; avatar = repository.currentProfile.avatar }
     }
-    val valid = name.trim().length in 2..24 && name.none { it.isISOControl() }
+    val valid = PlayerRepository.isValidName(name)
     Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -56,8 +60,11 @@ fun PlayerScreen(repository: PlayerRepository, ranking: Boolean, setup: Boolean 
             PlayerAvatar(avatar, 104.dp, Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally))
             Text(repository.syncMessage.ifBlank { "Compte invité • conservé sur cet appareil" }, style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(value = name, onValueChange = { name = it; edited = true; error = false },
-                label = { Text("Pseudo") }, singleLine = true, isError = !valid, enabled = !saving,
-                supportingText = { Text("De 2 à 24 caractères") }, modifier = Modifier.fillMaxWidth())
+                label = { Text("Pseudo") }, singleLine = true, isError = !valid || error, enabled = !saving,
+                supportingText = { Text(if (error) saveError else "De 2 à 24 caractères, unique (sans « / »)") },
+                modifier = Modifier.fillMaxWidth())
+            if (repository.nameTaken && !edited) Text("Ce pseudo est déjà utilisé par un autre joueur : choisissez-en un autre.",
+                color = MaterialTheme.colorScheme.error)
             Text("Choisissez votre avatar")
             Text("48 avatars Ludo et 8 avatars classiques", style = MaterialTheme.typography.bodySmall)
             val avatarGridState = rememberLazyGridState(
@@ -85,8 +92,13 @@ fun PlayerScreen(repository: PlayerRepository, ranking: Boolean, setup: Boolean 
                 saving = true
                 scope.launch {
                     try {
-                        if (repository.saveGlobalProfile(name, avatar)) { repository.completeSetup(); onBack() }
-                        else { error = true; saveError = "Enregistrement impossible." }
+                        when (repository.saveGlobalProfile(name, avatar)) {
+                            ProfileSaveResult.SAVED -> { repository.completeSetup(); onBack() }
+                            // Same pseudo is refused even with a different avatar.
+                            ProfileSaveResult.NAME_TAKEN -> { error = true; saveError = "Ce pseudo est déjà utilisé. Choisissez-en un autre." }
+                            ProfileSaveResult.OFFLINE -> { error = true; saveError = "Connexion requise pour vérifier que le pseudo est libre." }
+                            ProfileSaveResult.FAILED -> { error = true; saveError = "Enregistrement impossible." }
+                        }
                     } finally { saving = false }
                 }
             }, modifier = Modifier.fillMaxWidth()) {
@@ -109,11 +121,72 @@ fun PlayerToolbar(repository: PlayerRepository, onProfile: () -> Unit, onRanking
             TextButton(onClick = onProfile, modifier = Modifier.weight(1f)) {
                 PlayerAvatar(repository.currentProfile.avatar, 32.dp)
                 Spacer(Modifier.width(8.dp))
-                Text(repository.currentProfile.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(repository.currentProfile.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    color = if (repository.nameTaken) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified)
+                if (repository.nameTaken) Text(" · pseudo pris", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelSmall, maxLines = 1)
             }
-            IconButton(onClick = onRanking) {
-                Icon(androidx.compose.ui.res.painterResource(app.wordgame.R.drawable.ic_trophy), "Classements", tint = androidx.compose.ui.graphics.Color(0xFFBA8518))
+            var showHelp by rememberSaveable { mutableStateOf(false) }
+            // Round tonal buttons: ranking first, then "how to play".
+            FilledTonalIconButton(onClick = onRanking,
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xFFFFF3D6),
+                    contentColor = androidx.compose.ui.graphics.Color(0xFFBA8518))) {
+                Icon(Icons.Rounded.EmojiEvents, "Classements")
+            }
+            Spacer(Modifier.width(6.dp))
+            FilledTonalIconButton(onClick = { showHelp = true },
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xFFE3EEFB),
+                    contentColor = androidx.compose.ui.graphics.Color(0xFF1976D2))) {
+                Icon(Icons.Rounded.PriorityHigh, "Comment jouer ?")
+            }
+            if (showHelp) HowToPlayDialog(onDismiss = { showHelp = false })
+        }
+    }
+}
+
+@Composable
+fun HowToPlayDialog(onDismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("J’ai compris") } },
+        title = { Text("Comment jouer ?") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Trouvez le mot du jour de 5 lettres, en français ou en anglais.")
+                Text("Tapez un mot valide puis appuyez sur ENTRÉE. Après chaque essai, les cases changent de couleur :")
+                HelpExample("PLAGE", 0, androidx.compose.ui.graphics.Color(0xFF4CAF50),
+                    "Vert : la lettre P est dans le mot, à la bonne place.")
+                HelpExample("CARTE", 1, androidx.compose.ui.graphics.Color(0xFFFFC107),
+                    "Jaune : la lettre A est dans le mot, mais à une autre place.")
+                HelpExample("MONDE", 3, androidx.compose.ui.graphics.Color(0xFF9E9E9E),
+                    "Gris : la lettre D n’est pas dans le mot.")
+                Text("Vous avez 4 essais. Regardez une vidéo pour gagner jusqu’à 2 essais en plus.")
+                Text("Un nouveau mot chaque jour, pour chaque langue.")
+                Text("Le chronomètre ne compte que le temps passé sur le jeu : il s’arrête quand vous quittez l’écran.")
+                Text("Classement : le plus de mots trouvés d’abord, puis le temps total le plus court. Jour, semaine et mois.")
+                Text("Partagez votre résultat sans dévoiler le mot !")
+            }
+        })
+}
+
+@Composable
+private fun HelpExample(word: String, highlighted: Int, color: androidx.compose.ui.graphics.Color, caption: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            word.forEachIndexed { index, letter ->
+                val filled = index == highlighted
+                Box(Modifier.size(34.dp)
+                    .background(if (filled) color else androidx.compose.ui.graphics.Color.White,
+                        androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                    .border(1.dp, if (filled) color else androidx.compose.ui.graphics.Color(0xFFDDDDDD),
+                        androidx.compose.foundation.shape.RoundedCornerShape(6.dp)),
+                    contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Text(letter.toString(), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = if (filled) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF333333))
+                }
             }
         }
+        Text(caption, style = MaterialTheme.typography.bodySmall)
     }
 }

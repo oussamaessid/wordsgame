@@ -1,0 +1,11 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.wordgame",
+    "sha256_cert_fingerprints": [
+      "REMPLACER_PAR_SHA256_CLE_DE_SIGNATURE_PLAY_CONSOLE",
+      "78:46:74:D4:DC:4A:29:29:D2:FF:FB:C1:70:8D:0B:D3:CF:F8:FF:E7:FD:EE:2B:24:53:E6:72:B4:06:A5:DF:3E"
+    ]
+  }
+}]

@@ -7,10 +7,13 @@ import app.wordgame.domain.model.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
+import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+enum class ProfileSaveResult { SAVED, NAME_TAKEN, OFFLINE, FAILED }
 
 /** Device-local guest store. Never represents these scores as server-verified. */
 class PlayerRepository(private val prefs: SharedPreferences, val firebase: FirebasePlayers? = null) {
@@ -30,14 +33,17 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
         private set
     var syncMessage by androidx.compose.runtime.mutableStateOf("")
         private set
+    /** True when another player already owns the current pseudo; the player must pick another one. */
+    var nameTaken by androidx.compose.runtime.mutableStateOf(false)
+        private set
     val needsSetup get() = !prefs.getBoolean("profile_setup_complete", false)
     fun completeSetup() { prefs.edit().putBoolean("profile_setup_complete", true).apply() }
     fun profile() = PlayerProfile(prefs.getString("player_id", "")!!,
         prefs.getString("player_name", "Joueur")!!, prefs.getInt("player_avatar", PlayerAvatars.DEFAULT).takeIf { PlayerAvatars.isValid(it) } ?: PlayerAvatars.DEFAULT)
 
     fun update(name: String, avatar: Int): Boolean {
-        val clean = name.trim()
-        require(clean.length in 2..24 && clean.none { it.isISOControl() })
+        val clean = cleanName(name)
+        require(isValidName(clean))
         require(PlayerAvatars.isValid(avatar))
         val saved = prefs.edit().putString("player_name", clean).putInt("player_avatar", avatar).putBoolean("avatar_customized", true).commit()
         if (saved) currentProfile = profile()
@@ -76,14 +82,19 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
         if (!globalEnabled) return
         syncLock.withLock {
             val profile = profile()
-            val profileSignature = "${profile.name}:${profile.avatar}"
-            if (prefs.getString("synced_profile", null) != profileSignature) {
+            if (prefs.getString("synced_profile", null) != profileSignature(profile.name, profile.avatar)) {
                 try {
-                    firebase!!.write(mapOf("publicPlayers/${profile.id}" to JSONObject()
-                        .put("name", JSONObject().put("stringValue", profile.name))
-                        .put("avatar", JSONObject().put("integerValue", profile.avatar.toString()))))
-                    prefs.edit().putString("synced_profile", profileSignature).commit()
+                    publishProfile(profile.name, profile.avatar)
                 } catch (e: CancellationException) { throw e }
+                catch (_: NameTakenException) {
+                    // Profile chosen before names were unique: keep its scores online, ask for a new pseudo.
+                    try {
+                        firebase!!.write(mapOf("publicPlayers/${profile.id}" to JSONObject()
+                            .put("name", JSONObject().put("stringValue", profile.name))
+                            .put("avatar", JSONObject().put("integerValue", profile.avatar.toString()))))
+                    } catch (e: CancellationException) { throw e }
+                    catch (_: Exception) { syncMessage = "Profil enregistré ici · synchronisation en attente"; return }
+                }
                 catch (_: Exception) { syncMessage = "Profil enregistré ici · synchronisation en attente"; return }
             }
             val today = PlayerPeriods.today()
@@ -116,10 +127,56 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
             syncMessage = "Profil synchronisé"
         }
     }
-    suspend fun saveGlobalProfile(name: String, avatar: Int): Boolean {
-        if (!update(name, avatar)) return false
+    /**
+     * Saves the profile once its pseudo is reserved online. A pseudo belongs to a single player,
+     * whatever the avatar: "Ali" is refused if another player already uses "ali" with another icon.
+     */
+    suspend fun saveGlobalProfile(name: String, avatar: Int): ProfileSaveResult {
+        val clean = cleanName(name)
+        if (!isValidName(clean)) return ProfileSaveResult.FAILED
+        if (globalEnabled) {
+            try { publishProfile(clean, avatar) }
+            catch (e: CancellationException) { throw e }
+            catch (_: NameTakenException) { return ProfileSaveResult.NAME_TAKEN }
+            catch (_: FirebaseRequestException) { return ProfileSaveResult.FAILED }
+            // Without a connection the pseudo cannot be checked, so it is not saved.
+            catch (_: Exception) { return ProfileSaveResult.OFFLINE }
+        }
+        if (!update(clean, avatar)) return ProfileSaveResult.FAILED
         syncScores()
-        return true
+        return ProfileSaveResult.SAVED
+    }
+
+    private class NameTakenException : Exception()
+
+    /**
+     * Writes publicPlayers/{id} and reserves playerNames/{nameKey} in one atomic commit, releasing the
+     * previous reservation. The create-only precondition makes two players unable to claim one pseudo.
+     */
+    private suspend fun publishProfile(name: String, avatar: Int) {
+        val fb = firebase!!
+        val id = profile().id
+        val key = nameKey(name)
+        val claimed = prefs.getString("claimed_name", null)
+        val writes = mutableListOf(fb.updateWrite("publicPlayers/$id", JSONObject()
+            .put("name", JSONObject().put("stringValue", name))
+            .put("avatar", JSONObject().put("integerValue", avatar.toString()))
+            .put("nameKey", JSONObject().put("stringValue", key))))
+        if (claimed != key) {
+            val owner = fb.get("playerNames/$key")?.optJSONObject("fields")
+                ?.optJSONObject("playerId")?.optString("stringValue")
+            if (owner != null && owner != id) { nameTaken = true; throw NameTakenException() }
+            if (owner == null) writes += fb.updateWrite("playerNames/$key",
+                JSONObject().put("playerId", JSONObject().put("stringValue", id)), exists = false, stamp = false)
+            if (claimed != null) writes += fb.deleteWrite("playerNames/$claimed")
+        }
+        try { fb.commit(writes) }
+        catch (e: FirebaseRequestException) {
+            if (e.status == "FAILED_PRECONDITION" || e.status == "ALREADY_EXISTS") { nameTaken = true; throw NameTakenException() }
+            throw e
+        }
+        nameTaken = false
+        prefs.edit().putString("claimed_name", key).putString("synced_profile", profileSignature(name, avatar)).commit()
     }
     /**
      * The current player's position with up to [NEIGHBOURS] players before and after, or the top
@@ -185,6 +242,18 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
         /** Players shown before and after the current player. */
         const val NEIGHBOURS = 2
         const val ALL = "ALL"
+        /** Collapses spaces so "Ali  Ben" and "Ali Ben" are the same pseudo. */
+        fun cleanName(name: String) = name.trim().replace(Regex("\\s+"), " ")
+        /** Case-insensitive pseudo key, also the playerNames document id (firestore.rules checks name.lower()). */
+        fun nameKey(name: String) = cleanName(name).lowercase(Locale.ROOT)
+        fun isValidName(name: String): Boolean {
+            val clean = cleanName(name)
+            // '/' and the reserved forms cannot be Firestore document ids.
+            return clean.length in 2..24 && clean.none { it.isISOControl() || it == '/' } &&
+                clean != ".." && !clean.matches(Regex("^__.*__$"))
+        }
+        // v2: profiles now carry nameKey, so profiles synced before are published again.
+        private fun profileSignature(name: String, avatar: Int) = "v2:$name:$avatar"
         /** Firestore board id, e.g. day_HARD_2026-10-14, week_ALL_2026-W42 or month_EASY_2026-10. */
         fun boardId(period: RankingPeriod, mode: Language?, id: String) = "${period.key}_${mode?.name ?: ALL}_$id"
     }

@@ -54,6 +54,8 @@ class GameViewModel(
     private var playDay = app.wordgame.domain.model.PlayerPeriods.today().toString()
     private var initializeJob: kotlinx.coroutines.Job? = null
     private var timer: app.wordgame.domain.model.GameTimer? = null
+    /** Game screen visible, in the foreground and focused (no notification shade, screenshot overlay…). */
+    private var screenActive = true
     fun elapsedMs(): Long = timer?.elapsed(android.os.SystemClock.elapsedRealtime()) ?: 0
     private val _uiState = MutableStateFlow(GameUiState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
@@ -69,6 +71,11 @@ class GameViewModel(
     // ─────────────────────────────────────────────
 
     fun initializeGame(language: app.wordgame.domain.model.Language) {
+        // Coming back to the game screen keeps the current game: no reload, no loading screen.
+        val state = _uiState.value
+        val today = app.wordgame.domain.model.PlayerPeriods.today().toString()
+        if (language == currentLanguage && today == playDay && !state.noInternetError &&
+            (state.rankingReady || initializeJob?.isActive == true)) return
         currentLanguage = language
         keyboardStates.putIfAbsent(language, mutableMapOf())
 
@@ -122,6 +129,8 @@ class GameViewModel(
             val start = pausedElapsed?.let { now - it } ?: current.gameStartTime.takeIf { it > 0 } ?: now
             timer = app.wordgame.domain.model.GameTimer(start, System.currentTimeMillis(), android.os.SystemClock.elapsedRealtime())
             if (current.gameOver) timer?.restoreFinished((current.gameEndTime - start).coerceAtLeast(0))
+            // The player may have left while the words were loading.
+            else if (!screenActive) timer?.pause(android.os.SystemClock.elapsedRealtime())
             _uiState.value = current.copy(gameStartTime = start, isLoading = false, rankingReady = true)
             if (current.gameOver && savedState?.word == targetWord) {
                 players.record(language, java.time.LocalDate.parse(playDay), current.won,
@@ -137,6 +146,7 @@ class GameViewModel(
     // ─────────────────────────────────────────────
 
     fun pauseTimer() {
+        screenActive = false
         val state = _uiState.value
         val t = timer ?: return
         if (state.gameOver || state.isLoading) return
@@ -146,6 +156,7 @@ class GameViewModel(
     }
 
     fun resumeTimer() {
+        screenActive = true
         val state = _uiState.value
         val t = timer ?: return
         if (state.gameOver || state.isLoading) return

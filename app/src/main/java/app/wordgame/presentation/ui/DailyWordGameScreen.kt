@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 
@@ -46,22 +47,16 @@ fun DailyWordGameScreen(
         viewModel.initializeGame(language)
     }
 
-    // Le minuteur ne tourne que lorsque l'écran de jeu est visible.
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, viewModel) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.resumeTimer()
-                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.pauseTimer()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.pauseTimer()
-        }
+    // Le minuteur ne tourne que lorsque l'écran de jeu est au premier plan et a le focus :
+    // il s'arrête en arrière-plan, écran éteint, app fermée, volet de notifications ou capture
+    // d'écran ouverts, et reprend au retour sur le jeu.
+    val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val windowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+    val screenActive = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) && windowFocused
+    LaunchedEffect(screenActive, viewModel) {
+        if (screenActive) viewModel.resumeTimer() else viewModel.pauseTimer()
     }
+    DisposableEffect(viewModel) { onDispose { viewModel.pauseTimer() } }
 
     LaunchedEffect(uiState.invalidWordError) {
         if (uiState.invalidWordError) {

@@ -1,1 +1,10 @@
-{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"}}
+{
+  "firestore": {"rules": "firestore.rules", "indexes": "firestore.indexes.json"},
+  "hosting": {
+    "public": "hosting",
+    "cleanUrls": true,
+    "headers": [
+      {"source": "/.well-known/assetlinks.json", "headers": [{"key": "Content-Type", "value": "application/json"}]}
+    ]
+  }
+}

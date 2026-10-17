@@ -30,6 +30,15 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Lien de partage : ouvre l'app si elle est installée, sinon la page redirige vers le Play Store. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="wordsgame-80893.web.app" />
+                <data android:pathPrefix="/play" />
+            </intent-filter>
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -16,14 +16,17 @@ class ResultShareTest {
     @Test fun englishResultAndLossNeverClaimVictory() {
         val result=sample(english=true,won=false)
         assertTrue(result.text.contains("Time : 01:23"));assertTrue(result.text.contains("Attempts : X/6"))
-        assertFalse(result.text.contains("I found"));assertTrue(result.text.contains("English"))
+        assertFalse(result.text.contains("I found"));assertTrue(result.text.contains("Game of 14/10/2026"))
     }
-    @Test fun eachMathDifficultyIsPreserved() {
+    @Test fun levelIsReplacedByGameDate() {
         for(mode in listOf("Facile","Moyen","Difficile")) {
             val result=ShareResult("Equal To","Alice","2026-10-15","Mode $mode · Niveau 42",true,2,5,3723000)
-            assertTrue(result.text.contains("Mode $mode · Niveau 42"));assertTrue(result.text.contains("1:02:03"))
-            assertTrue(result.text.contains("Essais : 2/5"))
+            assertFalse(result.text.contains("Niveau"));assertTrue(result.text.contains("Partie du 15/10/2026"))
+            assertTrue(result.text.contains("1:02:03"));assertTrue(result.text.contains("Essais : 2/5"))
         }
+    }
+    @Test fun sharedTextLinksToTheApp() {
+        assertTrue(sample().text.endsWith("Jouer : ${ShareResult.PLAY_LINK}"))
     }
     @Test fun missingHistoricalTimeIsNeverInvented() {
         assertEquals("Indisponible",sample().copy(durationMs=null).timeLabel)

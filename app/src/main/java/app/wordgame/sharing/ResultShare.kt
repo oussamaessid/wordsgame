@@ -55,8 +55,7 @@ object ResultShare {
             paint.textAlign=Paint.Align.CENTER
             canvas.drawText(text,540f,y,paint)
         }
-        line(result.game.uppercase(java.util.Locale.ROOT),85f,42f,Color.WHITE,true)
-        line(result.dateLabel,134f,27f,Color.rgb(225,227,247))
+        line(result.game.uppercase(java.util.Locale.ROOT),110f,46f,Color.WHITE,true)
         paint.color=Color.WHITE;canvas.drawRoundRect(50f,175f,1030f,1285f,44f,44f,paint)
         if (result.avatarResource!=0) {
             ContextCompat.getDrawable(context,result.avatarResource)?.let { drawable ->
@@ -69,7 +68,7 @@ object ResultShare {
         val layout = StaticLayout.Builder.obtain(result.headline,0,result.headline.length,heading,860)
             .setAlignment(Layout.Alignment.ALIGN_CENTER).setMaxLines(2).setEllipsize(TextUtils.TruncateAt.END).build()
         canvas.save();canvas.translate(110f,390f);layout.draw(canvas);canvas.restore()
-        line(result.category,532f,28f,accent,true)
+        line(result.gameDateLabel,532f,28f,accent,true)
         paint.color=Color.rgb(242,244,250);canvas.drawRoundRect(175f,565f,905f,730f,28f,28f,paint)
         line(if(result.english) "TIME" else "TEMPS",610f,21f,Color.rgb(115,118,138),true)
         line(result.timeLabel,691f,66f,accent,true)
@@ -88,7 +87,8 @@ object ResultShare {
             line(result.attemptsLabel,935f,120f,if(result.won) Color.rgb(52,139,82) else accent,true)
             line(if(result.english) "ATTEMPTS" else "ESSAIS",994f,25f,Color.rgb(115,118,138),true)
         }
-        line(if(result.english) "Your turn!" else "À vous de jouer !",1232f,31f,accent,true)
+        line(if(result.english) "Your turn!" else "À vous de jouer !",1222f,31f,accent,true)
+        line(if(result.english) "Available on Google Play" else "Disponible sur Google Play",1262f,22f,Color.rgb(115,118,138))
         return bitmap
     }
 }

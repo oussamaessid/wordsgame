@@ -22,18 +22,20 @@ data class ShareResult(
     val avatarResource: Int = 0
 ) {
     val dateLabel: String get() = LocalDate.parse(day).format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT))
+    /** Shown instead of the level/category: the day the game was played. */
+    val gameDateLabel: String get() = if (english) "Game of $dateLabel" else "Partie du $dateLabel"
     val headline: String get() = if (wordGame) {
         if (english) { if (won) "I found today's word!" else "Today's word challenged me!" }
         else { if (won) "J’ai trouvé le mot du jour !" else "J’ai tenté le mot du jour !" }
-    } else if (won) "Niveau du jour réussi !" else "J’ai relevé le défi du jour !"
+    } else if (won) "Défi du jour réussi !" else "J’ai relevé le défi du jour !"
     val timeLabel: String get() = durationMs?.takeIf { it > 0 }?.let { app.wordgame.domain.model.GameTimer.format(it) }
         ?: if (english) "Unavailable" else "Indisponible"
     val attemptsLabel: String get() = "${if (won) attempts else "X"}/$maxAttempts"
     val text: String get() = buildString {
-        appendLine("$game · $dateLabel")
+        appendLine(game)
         appendLine(player)
         appendLine(headline)
-        appendLine(category)
+        appendLine(gameDateLabel)
         appendLine("${if (english) "Time" else "Temps"} : $timeLabel")
         appendLine("${if (english) "Attempts" else "Essais"} : $attemptsLabel")
         if (grid.isNotEmpty()) {
@@ -43,6 +45,12 @@ data class ShareResult(
             } }) }
         }
         appendLine()
-        append(if (english) "Your turn!" else "À vous de jouer !")
+        appendLine(if (english) "Your turn!" else "À vous de jouer !")
+        // Play Store page: "Install", or "Open" when the app is already installed.
+        append("${if (english) "Play" else "Jouer"} : $PLAY_LINK")
+    }
+
+    companion object {
+        const val PLAY_LINK = "https://play.google.com/store/apps/details?id=app.wordgame"
     }
 }

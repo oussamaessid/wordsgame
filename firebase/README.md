@@ -4,13 +4,14 @@
 
 Projet réel : `wordsgame-80893`. Package : `app.wordgame`. Base Firestore Standard `(default)` : `europe-west1`. L’application utilise son vrai `app/google-services.json`, copié dans les assets pendant le build.
 
-La solution utilise uniquement Firestore REST, sans Firebase Auth, Cloud Functions, Firebase Hosting ni activation Blaze. Le propriétaire a explicitement approuvé les scores déclarés par le téléphone et l’absence de protection fiable de l’identité. Le profil est un invité local persistant (UUID, pseudo et avatar), avec copie publique dans Firestore. L’effacement des données de l’application perd cet invité.
+La solution utilise Firestore REST, sans Firebase Auth, Cloud Functions ni activation Blaze. Firebase Hosting (gratuit, plan Spark) sert uniquement le lien de partage `https://wordsgame-80893.web.app/play` : il ouvre l’app si elle est installée (Android App Links, `hosting/.well-known/assetlinks.json`), sinon redirige vers le Play Store. Le propriétaire a explicitement approuvé les scores déclarés par le téléphone et l’absence de protection fiable de l’identité. Le profil est un invité local persistant (UUID, pseudo et avatar), avec copie publique dans Firestore. L’effacement des données de l’application perd cet invité.
 
 `firebase.json` déploie uniquement règles et index Firestore. Le répertoire `functions/` contient l’ancienne proposition de serveur validé, non utilisée par l’application, non déployée et non référencée par la configuration courante. Ses tests ne valident pas la solution directe.
 
 ## Données
 
-- `publicPlayers/{playerUuid}` : pseudo, avatar et horodatage serveur.
+- `publicPlayers/{playerUuid}` : pseudo, avatar, `nameKey` (pseudo en minuscules) et horodatage serveur.
+- `playerNames/{pseudo en minuscules}` : propriétaire (`playerId`) du pseudo. Créé avec la précondition « n’existe pas » dans le même commit que le profil : un pseudo appartient à un seul joueur, quel que soit l’avatar.
 - `leaderboards/{period}_{language}_{periodId}/entries/{playerUuid}` : une entrée par joueur et classement.
 - Périodes : `day`, `week` (ISO), `month`, calculées dans `Africa/Tunis`.
 - Langues : `FRENCH`, `ENGLISH`, `ALL` (les deux langues additionnées).
@@ -22,7 +23,7 @@ Les règles limitent le format, les avatars (0–55), le nombre de victoires (1/
 
 ## Déploiement et build
 
-Depuis ce dossier : `firebase deploy --only firestore --project wordsgame-80893`.
+Depuis ce dossier : `firebase deploy --only firestore,hosting --project wordsgame-80893`. Déployer les règles **avant** de publier la version de l’app qui envoie `nameKey`.
 
 Depuis le projet Android : `./gradlew assembleDebug testDebugUnitTest` avec Java 21. Aucun SDK Firebase Android supplémentaire n’est nécessaire ; le réseau/JSON existant est réutilisé.
 

@@ -60,15 +60,23 @@ class FirebasePlayers(context: Context) {
     }
 
     /** Atomically replaces each document and stamps updatedAt with the server time. */
-    suspend fun write(documents: Map<String, JSONObject>) = withContext(Dispatchers.IO) {
-        val writes = JSONArray()
-        documents.forEach { (path, fields) ->
-            writes.put(JSONObject()
-                .put("update", JSONObject().put("name", "$database/documents/$path").put("fields", fields))
-                .put("updateTransforms", JSONArray().put(JSONObject()
-                    .put("fieldPath", "updatedAt").put("setToServerValue", "REQUEST_TIME"))))
+    suspend fun write(documents: Map<String, JSONObject>) =
+        commit(documents.map { (path, fields) -> updateWrite(path, fields) })
+
+    /** One write replacing path's fields and stamping updatedAt; exists = null means no precondition. */
+    fun updateWrite(path: String, fields: JSONObject, exists: Boolean? = null, stamp: Boolean = true): JSONObject =
+        JSONObject().put("update", JSONObject().put("name", "$database/documents/$path").put("fields", fields)).apply {
+            if (stamp) put("updateTransforms", JSONArray().put(JSONObject()
+                .put("fieldPath", "updatedAt").put("setToServerValue", "REQUEST_TIME")))
+            if (exists != null) put("currentDocument", JSONObject().put("exists", exists))
         }
-        post("https://firestore.googleapis.com/v1/$database/documents:commit", JSONObject().put("writes", writes).toString())
+
+    fun deleteWrite(path: String): JSONObject = JSONObject().put("delete", "$database/documents/$path")
+
+    /** Applies all writes atomically: either every write succeeds or none does. */
+    suspend fun commit(writes: List<JSONObject>) = withContext(Dispatchers.IO) {
+        post("https://firestore.googleapis.com/v1/$database/documents:commit",
+            JSONObject().put("writes", JSONArray(writes)).toString())
         Unit
     }
 
@@ -82,7 +90,8 @@ class FirebasePlayers(context: Context) {
 
     /** Reads one document, or null when it does not exist. */
     suspend fun get(path: String): JSONObject? = withContext(Dispatchers.IO) {
-        try { JSONObject(post("https://firestore.googleapis.com/v1/$database/documents/$path", null)) }
+        val encoded = path.split('/').joinToString("/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") }
+        try { JSONObject(post("https://firestore.googleapis.com/v1/$database/documents/$encoded", null)) }
         catch (e: FirebaseRequestException) { if (e.status == "NOT_FOUND") null else throw e }
     }
 

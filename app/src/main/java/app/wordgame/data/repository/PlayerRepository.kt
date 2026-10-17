@@ -128,8 +128,8 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
         }
     }
     /**
-     * Saves the profile once its pseudo is reserved online. A pseudo belongs to a single player,
-     * whatever the avatar: "Ali" is refused if another player already uses "ali" with another icon.
+     * Saves the profile once its pseudo + avatar pair is reserved online. Several players may share
+     * "Ali" with different avatars, but "ali" with the same avatar as another player is refused.
      */
     suspend fun saveGlobalProfile(name: String, avatar: Int): ProfileSaveResult {
         val clean = cleanName(name)
@@ -151,12 +151,12 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
 
     /**
      * Writes publicPlayers/{id} and reserves playerNames/{nameKey} in one atomic commit, releasing the
-     * previous reservation. The create-only precondition makes two players unable to claim one pseudo.
+     * previous reservation. The create-only precondition makes two players unable to claim one pseudo + avatar.
      */
     private suspend fun publishProfile(name: String, avatar: Int) {
         val fb = firebase!!
         val id = profile().id
-        val key = nameKey(name)
+        val key = nameKey(name, avatar)
         val claimed = prefs.getString("claimed_name", null)
         val writes = mutableListOf(fb.updateWrite("publicPlayers/$id", JSONObject()
             .put("name", JSONObject().put("stringValue", name))
@@ -244,16 +244,19 @@ class PlayerRepository(private val prefs: SharedPreferences, val firebase: Fireb
         const val ALL = "ALL"
         /** Collapses spaces so "Ali  Ben" and "Ali Ben" are the same pseudo. */
         fun cleanName(name: String) = name.trim().replace(Regex("\\s+"), " ")
-        /** Case-insensitive pseudo key, also the playerNames document id (firestore.rules checks name.lower()). */
-        fun nameKey(name: String) = cleanName(name).lowercase(Locale.ROOT)
+        /**
+         * Case-insensitive pseudo + avatar key, e.g. "ali#3", also the playerNames document id
+         * (firestore.rules checks name.lower() + '#' + string(avatar)).
+         */
+        fun nameKey(name: String, avatar: Int) = "${cleanName(name).lowercase(Locale.ROOT)}#$avatar"
         fun isValidName(name: String): Boolean {
             val clean = cleanName(name)
             // '/' and the reserved forms cannot be Firestore document ids.
             return clean.length in 2..24 && clean.none { it.isISOControl() || it == '/' } &&
                 clean != ".." && !clean.matches(Regex("^__.*__$"))
         }
-        // v2: profiles now carry nameKey, so profiles synced before are published again.
-        private fun profileSignature(name: String, avatar: Int) = "v2:$name:$avatar"
+        // v3: nameKey now includes the avatar, so profiles synced before are published again.
+        private fun profileSignature(name: String, avatar: Int) = "v3:$name:$avatar"
         /** Firestore board id, e.g. day_HARD_2026-10-14, week_ALL_2026-W42 or month_EASY_2026-10. */
         fun boardId(period: RankingPeriod, mode: Language?, id: String) = "${period.key}_${mode?.name ?: ALL}_$id"
     }

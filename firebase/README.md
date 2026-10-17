@@ -10,8 +10,8 @@ La solution utilise Firestore REST, sans Firebase Auth, Cloud Functions ni activ
 
 ## Données
 
-- `publicPlayers/{playerUuid}` : pseudo, avatar, `nameKey` (pseudo en minuscules) et horodatage serveur.
-- `playerNames/{pseudo en minuscules}` : propriétaire (`playerId`) du pseudo. Créé avec la précondition « n’existe pas » dans le même commit que le profil : un pseudo appartient à un seul joueur, quel que soit l’avatar.
+- `publicPlayers/{playerUuid}` : pseudo, avatar, `nameKey` (pseudo en minuscules + `#` + avatar, ex. `ali#3`) et horodatage serveur.
+- `playerNames/{pseudo en minuscules}#{avatar}` : propriétaire (`playerId`) du couple pseudo + avatar. Créé avec la précondition « n’existe pas » dans le même commit que le profil : plusieurs joueurs peuvent s’appeler « Ali » avec des avatars différents, jamais avec le même. L’ancienne clé sans avatar (v1.1.3) reste acceptée par les règles.
 - `leaderboards/{period}_{language}_{periodId}/entries/{playerUuid}` : une entrée par joueur et classement.
 - Périodes : `day`, `week` (ISO), `month`, calculées dans `Africa/Tunis`.
 - Langues : `FRENCH`, `ENGLISH`, `ALL` (les deux langues additionnées).

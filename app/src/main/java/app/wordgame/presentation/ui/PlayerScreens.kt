@@ -61,9 +61,9 @@ fun PlayerScreen(repository: PlayerRepository, ranking: Boolean, setup: Boolean 
             Text(repository.syncMessage.ifBlank { "Compte invité • conservé sur cet appareil" }, style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(value = name, onValueChange = { name = it; edited = true; error = false },
                 label = { Text("Pseudo") }, singleLine = true, isError = !valid || error, enabled = !saving,
-                supportingText = { Text(if (error) saveError else "De 2 à 24 caractères, unique (sans « / »)") },
+                supportingText = { Text(if (error) saveError else "De 2 à 24 caractères, sans « / ». Pseudo + avatar uniques") },
                 modifier = Modifier.fillMaxWidth())
-            if (repository.nameTaken && !edited) Text("Ce pseudo est déjà utilisé par un autre joueur : choisissez-en un autre.",
+            if (repository.nameTaken && !edited) Text("Ce pseudo est déjà utilisé avec cet avatar par un autre joueur : changez de pseudo ou d’avatar.",
                 color = MaterialTheme.colorScheme.error)
             Text("Choisissez votre avatar")
             Text("48 avatars Ludo et 8 avatars classiques", style = MaterialTheme.typography.bodySmall)
@@ -94,8 +94,8 @@ fun PlayerScreen(repository: PlayerRepository, ranking: Boolean, setup: Boolean 
                     try {
                         when (repository.saveGlobalProfile(name, avatar)) {
                             ProfileSaveResult.SAVED -> { repository.completeSetup(); onBack() }
-                            // Same pseudo is refused even with a different avatar.
-                            ProfileSaveResult.NAME_TAKEN -> { error = true; saveError = "Ce pseudo est déjà utilisé. Choisissez-en un autre." }
+                            // Same pseudo is allowed with another avatar, never with the same one.
+                            ProfileSaveResult.NAME_TAKEN -> { error = true; saveError = "Ce pseudo est déjà pris avec cet avatar. Changez de pseudo ou d’avatar." }
                             ProfileSaveResult.OFFLINE -> { error = true; saveError = "Connexion requise pour vérifier que le pseudo est libre." }
                             ProfileSaveResult.FAILED -> { error = true; saveError = "Enregistrement impossible." }
                         }

@@ -46,8 +46,8 @@ data class ShareResult(
         }
         appendLine()
         appendLine(if (english) "Your turn!" else "À vous de jouer !")
-        // Play Store page: "Install", or "Open" when the app is already installed.
-        append("${if (english) "Play" else "Jouer"} : $PLAY_LINK")
+        // Google Play shows "Open" when installed and "Install" otherwise.
+        append("${if (english) "Open or install" else "Ouvrir ou installer"} $game : $PLAY_LINK")
     }
 
     companion object {

@@ -26,7 +26,9 @@ class ResultShareTest {
         }
     }
     @Test fun sharedTextLinksToTheApp() {
-        assertTrue(sample().text.endsWith("Jouer : ${ShareResult.PLAY_LINK}"))
+        assertEquals("https://play.google.com/store/apps/details?id=app.wordgame", ShareResult.PLAY_LINK)
+        assertTrue(sample().text.endsWith("Ouvrir ou installer Words Game : ${ShareResult.PLAY_LINK}"))
+        assertTrue(sample(english=true).text.endsWith("Open or install Words Game : ${ShareResult.PLAY_LINK}"))
     }
     @Test fun missingHistoricalTimeIsNeverInvented() {
         assertEquals("Indisponible",sample().copy(durationMs=null).timeLabel)

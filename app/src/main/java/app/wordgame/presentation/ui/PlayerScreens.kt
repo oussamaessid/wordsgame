@@ -12,8 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.EmojiEvents
-import androidx.compose.material.icons.rounded.PriorityHigh
-import androidx.compose.foundation.background
+import androidx.compose.material.icons.rounded.QuestionMark
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import app.wordgame.data.repository.PlayerRepository
 import app.wordgame.data.repository.ProfileSaveResult
 import app.wordgame.domain.model.Language
+import app.wordgame.domain.model.LetterState
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -139,7 +139,7 @@ fun PlayerToolbar(repository: PlayerRepository, onProfile: () -> Unit, onRanking
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = androidx.compose.ui.graphics.Color(0xFFE3EEFB),
                     contentColor = androidx.compose.ui.graphics.Color(0xFF1976D2))) {
-                Icon(Icons.Rounded.PriorityHigh, "Comment jouer ?")
+                Icon(Icons.Rounded.QuestionMark, "Comment jouer ?")
             }
             if (showHelp) HowToPlayDialog(onDismiss = { showHelp = false })
         }
@@ -154,12 +154,12 @@ fun HowToPlayDialog(onDismiss: () -> Unit) {
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Trouvez le mot du jour de 5 lettres, en français ou en anglais.")
-                Text("Tapez un mot valide puis appuyez sur ENTRÉE. Après chaque essai, les cases changent de couleur :")
-                HelpExample("PLAGE", 0, androidx.compose.ui.graphics.Color(0xFF4CAF50),
+                Text("Tapez un mot existant de 5 lettres puis appuyez sur VALIDER. Après chaque essai, les cases changent de couleur :")
+                HelpExample("PLAGE", 0, LetterState.CORRECT,
                     "Vert : la lettre P est dans le mot, à la bonne place.")
-                HelpExample("CARTE", 1, androidx.compose.ui.graphics.Color(0xFFFFC107),
+                HelpExample("CARTE", 1, LetterState.PRESENT,
                     "Jaune : la lettre A est dans le mot, mais à une autre place.")
-                HelpExample("MONDE", 3, androidx.compose.ui.graphics.Color(0xFF9E9E9E),
+                HelpExample("MONDE", 3, LetterState.WRONG,
                     "Gris : la lettre D n’est pas dans le mot.")
                 Text("Vous avez 4 essais. Regardez une vidéo pour gagner jusqu’à 2 essais en plus.")
                 Text("Un nouveau mot chaque jour, pour chaque langue.")
@@ -171,20 +171,12 @@ fun HowToPlayDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun HelpExample(word: String, highlighted: Int, color: androidx.compose.ui.graphics.Color, caption: String) {
+private fun HelpExample(word: String, highlighted: Int, state: LetterState, caption: String) {
+    // Same cells as the game grid so the colours match exactly.
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             word.forEachIndexed { index, letter ->
-                val filled = index == highlighted
-                Box(Modifier.size(34.dp)
-                    .background(if (filled) color else androidx.compose.ui.graphics.Color.White,
-                        androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
-                    .border(1.dp, if (filled) color else androidx.compose.ui.graphics.Color(0xFFDDDDDD),
-                        androidx.compose.foundation.shape.RoundedCornerShape(6.dp)),
-                    contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    Text(letter.toString(), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        color = if (filled) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color(0xFF333333))
-                }
+                LetterCell(letter.toString(), if (index == highlighted) state else LetterState.EMPTY, 34.dp)
             }
         }
         Text(caption, style = MaterialTheme.typography.bodySmall)

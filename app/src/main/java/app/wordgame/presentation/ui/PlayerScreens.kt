@@ -12,7 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.EmojiEvents
-import androidx.compose.material.icons.rounded.QuestionMark
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -135,11 +135,12 @@ fun PlayerToolbar(repository: PlayerRepository, onProfile: () -> Unit, onRanking
                 Icon(Icons.Rounded.EmojiEvents, "Classements")
             }
             Spacer(Modifier.width(6.dp))
-            FilledTonalIconButton(onClick = { showHelp = true },
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = androidx.compose.ui.graphics.Color(0xFFE3EEFB),
-                    contentColor = androidx.compose.ui.graphics.Color(0xFF1976D2))) {
-                Icon(Icons.Rounded.QuestionMark, "Comment jouer ?")
+            // Same blue round button as the in-game header buttons.
+            IconButton(onClick = { showHelp = true },
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = androidx.compose.ui.graphics.Color(0xFF1976D2),
+                    contentColor = androidx.compose.ui.graphics.Color.White)) {
+                Icon(Icons.AutoMirrored.Rounded.HelpOutline, "Comment jouer ?")
             }
             if (showHelp) HowToPlayDialog(onDismiss = { showHelp = false })
         }

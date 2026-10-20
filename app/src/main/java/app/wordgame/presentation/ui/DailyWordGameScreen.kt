@@ -65,6 +65,16 @@ fun DailyWordGameScreen(
         }
     }
 
+    var showCompletionDialog by remember(language) { mutableStateOf(false) }
+    LaunchedEffect(uiState.gameOver, uiState.showRewardedAdDialog) {
+        showCompletionDialog = false
+        if (uiState.gameOver && !uiState.showRewardedAdDialog) {
+            // Keep the completed grid visible long enough to read the correct answer.
+            delay(4000)
+            showCompletionDialog = true
+        }
+    }
+
     if (uiState.isLoading) {
         Box(
             modifier = Modifier
@@ -133,7 +143,7 @@ fun DailyWordGameScreen(
         return
     }
 
-    if (uiState.gameOver && !uiState.showRewardedAdDialog) {
+    if (uiState.gameOver && !uiState.showRewardedAdDialog && showCompletionDialog) {
         Box(modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
@@ -263,25 +273,9 @@ fun DailyWordGameScreen(
                 currentGuessLength = uiState.currentGuess.length
             )
 
-            // Espace libre entre le clavier et la bannière : sinon les joueurs qui tapent
-            // vite cliquent la pub par accident (trafic invalide).
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(bottom = 8.dp)
-            ) {
-                BannerAdView(
-                    isLanguageScreen = false,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
         }
 
-        if (uiState.showStats) {
+        if (uiState.showStats && (!(uiState.gameOver || uiState.won) || showCompletionDialog)) {
             StatsDialog(
                 won = uiState.won,
                 gameOver = false,

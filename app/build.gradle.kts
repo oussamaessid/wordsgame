@@ -6,6 +6,21 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Local release credentials stay outside Git and can be moved securely to another PC.
+val signingPropertiesFile = rootProject.file("keystore.properties")
+val signingProperties = Properties().apply {
+    if (signingPropertiesFile.isFile) signingPropertiesFile.inputStream().use { load(it) }
+}
+fun releaseCredential(property: String, environment: String): String? =
+    System.getenv(environment)?.takeIf { it.isNotBlank() }
+        ?: signingProperties.getProperty(property)?.takeIf { it.isNotBlank() }
+val releaseStoreFile = releaseCredential("storeFile", "DAILYWORD_STORE_FILE")
+val releaseStorePassword = releaseCredential("storePassword", "DAILYWORD_STORE_PASSWORD")
+val releaseKeyAlias = releaseCredential("keyAlias", "DAILYWORD_KEY_ALIAS")
+val releaseKeyPassword = releaseCredential("keyPassword", "DAILYWORD_KEY_PASSWORD")
+val hasReleaseSigning = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+    .all { it != null }
+
 android {
     namespace = "app.wordgame"
     compileSdk = 36
@@ -14,14 +29,26 @@ android {
         applicationId = "app.wordgame"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.1.2"
+        versionCode = 9
+        versionName = "1.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("production") {
+                storeFile = rootProject.file(requireNotNull(releaseStoreFile))
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("production")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -106,6 +133,10 @@ android.defaultConfig {
 // Un AAB/APK release sans clé aurait le classement désactivé : on bloque le build.
 tasks.matching { it.name.startsWith("pre") && it.name.endsWith("ReleaseBuild") }.configureEach {
     doFirst {
+        if (!hasReleaseSigning) throw GradleException(
+            "Signature de production absente : renseignez keystore.properties (voir PRODUCTION.md).")
+        if (!rootProject.file(requireNotNull(releaseStoreFile)).isFile) throw GradleException(
+            "Fichier de signature introuvable : vérifiez storeFile dans keystore.properties.")
         if (firebaseApiKey.isBlank()) throw GradleException(
             "Clé Firebase absente : ajoutez app/google-services.json ou firebase.apiKey=... dans local.properties, sinon le classement ne fonctionnera pas.")
     }

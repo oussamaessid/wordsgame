@@ -40,3 +40,12 @@ La sauvegarde SharedPreferences conservait seulement la dernière partie par lan
 - Le premier téléchargement du dictionnaire exige toujours une connexion ; les résultats archivés n’en exigent pas. Les résultats restent sur cet appareil, sans synchronisation multi-appareils ajoutée.
 - Le lien Google Play provient du code existant ; sa disponibilité publique n’a pas été vérifiée dans cette tâche.
 - À compléter avant diffusion publique : recette sur plusieurs tailles physiques/polices d’accessibilité, parcours d’annonces récompensées et synchronisation réelle du classement, test prolongé du changement de jour, rétention et sauvegarde des archives à long terme.
+
+## Préparation de production sur un autre PC
+
+- Version Android portée à 1.1.3 (code 9), à comparer avec le dernier code utilisé dans Play Console avant envoi.
+- Signature release configurable via `keystore.properties` privé ou variables d’environnement. Aucun certificat debug utilisé pour une release.
+- Clés privées et configuration de signature exclues de Git ; modèle sans secrets fourni dans `keystore.properties.example`.
+- Guide Windows/macOS/Linux dans `PRODUCTION.md` : SDK, Firebase, transfert privé de la clé existante, génération AAB et APK, conservation des données lors d’une mise à jour.
+- Vérification du garde-fou `:app:preReleaseBuild` : échec attendu avec « Signature de production absente ». Aucun APK/AAB signé de production créé, aucune publication.
+- Vérification après changement de version : `testDebugUnitTest assembleDebug --offline` réussi, 16 tests unitaires sans échec.

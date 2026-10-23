@@ -18,3 +18,10 @@ app/google-services.json
 firebase/functions/node_modules/
 firebase/.firebase/
 firebase/*debug.log
+
+# Production signing credentials (never commit)
+/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pem

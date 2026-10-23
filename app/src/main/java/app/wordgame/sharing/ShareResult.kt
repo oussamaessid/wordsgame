@@ -45,7 +45,7 @@ data class ShareResult(
             } }) }
         }
         appendLine()
-        appendLine(if (english) "Your turn!" else "À vous de jouer !")
+        appendLine(if (english) "Can you beat my score? Take on today’s challenge!" else "Ferez-vous mieux ? Relevez le défi du jour !")
         // Google Play shows "Open" when installed and "Install" otherwise.
         append("${if (english) "Open or install" else "Ouvrir ou installer"} $game : $PLAY_LINK")
     }

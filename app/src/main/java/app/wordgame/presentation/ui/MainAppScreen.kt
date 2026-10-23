@@ -34,6 +34,16 @@ fun MainAppScreen() {
         )
     }
 
+    val settings = remember { context.getSharedPreferences("WordGame_Settings", Context.MODE_PRIVATE) }
+    var tutorial by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(!settings.getBoolean("tutorial_seen", false)) }
+    if (tutorial) {
+        TutorialScreen(onDone = {
+            settings.edit().putBoolean("tutorial_seen", true).apply()
+            tutorial = false
+        })
+        return
+    }
+
     val players = app.wordgame.di.AppContainer.players
     var playerPage by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     LaunchedEffect(Unit) { players.syncScores() }
@@ -49,7 +59,7 @@ fun MainAppScreen() {
         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) {
     when (currentScreen) {
         Screen.LanguageSelection -> {
-            LanguageSelectionScreen(
+            DailyHomeScreen(
                 onLanguageSelected = { language ->
                     saveLanguage(context, language)
                     selectedLanguage = language

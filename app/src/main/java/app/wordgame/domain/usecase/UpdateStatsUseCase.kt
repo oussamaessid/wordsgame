@@ -1,14 +1,15 @@
 package app.wordgame.domain.usecase
 
+import app.wordgame.domain.model.GameStats
+import java.time.LocalDate
 
 class UpdateStatsUseCase {
-    operator fun invoke(currentStats: app.wordgame.domain.model.GameStats, won: Boolean): app.wordgame.domain.model.GameStats {
-        return currentStats.copy(
-            totalPlayed = currentStats.totalPlayed + 1,
-            wins = if (won) currentStats.wins + 1 else currentStats.wins,
-            currentStreak = if (won) currentStats.currentStreak + 1 else 0,
-            maxStreak = if (won) maxOf(currentStats.maxStreak, currentStats.currentStreak + 1)
-            else currentStats.maxStreak
-        )
+    operator fun invoke(currentStats: GameStats, won: Boolean, day: String = LocalDate.now().toString()): GameStats {
+        if (currentStats.lastPlayedDate.isNotEmpty() && day <= currentStats.lastPlayedDate) return currentStats
+        val consecutive = currentStats.lastPlayedDate == LocalDate.parse(day).minusDays(1).toString()
+        val streak = if (won) (if (consecutive) currentStats.currentStreak + 1 else 1) else 0
+        return currentStats.copy(totalPlayed = currentStats.totalPlayed + 1,
+            wins = currentStats.wins + if (won) 1 else 0, currentStreak = streak,
+            maxStreak = maxOf(currentStats.maxStreak, streak), lastPlayedDate = day)
     }
 }

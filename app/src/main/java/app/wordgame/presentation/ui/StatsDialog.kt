@@ -73,7 +73,7 @@ fun StatsDialog(
             "play_again"   to "Prochain mot dans",
             "statistics"   to "Statistiques",
             "played"       to "Parties",
-            "win_rate"     to "Victoires",
+            "win_rate"     to "Réussite",
             "streak"       to "Série",
             "max_streak"   to "Record",
             "close"        to "FERMER"
@@ -213,6 +213,8 @@ fun StatsDialog(
                     color = Color(0xFF0D47A1)
                 )
 
+                Text(if (language == app.wordgame.domain.model.Language.FRENCH) "${stats.wins} victoires" else "${stats.wins} wins")
+
                 // ── Stats ligne 1 ────────────────────────────────────────────
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -265,7 +267,7 @@ fun StatsDialog(
                         } }
                     }
                     ShareResultButtons(app.wordgame.sharing.ShareResult(
-                        game = "Words Game", player = profile.name, day = day,
+                        game = "DailyWord", player = profile.name, day = day,
                         category = if (language == app.wordgame.domain.model.Language.FRENCH) "Mot du jour · Français" else "Daily word · English",
                         won = won, attempts = attempts, maxAttempts = maxAttempts,
                         durationMs = (gameEndTime - gameStartTime).takeIf { gameStartTime > 0 && gameEndTime > 0 && it > 0 },

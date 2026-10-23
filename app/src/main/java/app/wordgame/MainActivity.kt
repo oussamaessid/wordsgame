@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             // rememberSaveable : pas de nouvelle App Open après une rotation d'écran.
-            var showAppOpenAd by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(true) }
+            var showAppOpenAd by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(getSharedPreferences("WordGame_Settings", MODE_PRIVATE).getBoolean("tutorial_seen", false)) }
             var appOpenAdShown by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
             // Délai de 2.5s pour éviter les clics accidentels au lancement
@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(
                     modifier = Modifier
-                        .fillMaxSize(),
+                        .fillMaxSize().statusBarsPadding(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     if (!showAppOpenAd) {

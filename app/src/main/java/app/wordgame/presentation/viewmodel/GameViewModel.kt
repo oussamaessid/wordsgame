@@ -83,7 +83,8 @@ class GameViewModel(
         playDay = app.wordgame.domain.model.PlayerPeriods.today().toString()
         _uiState.value = GameUiState()
         initializeJob = viewModelScope.launch {
-            val success = repository.loadWordsFromUrl()
+            val savedState = loadGameStateUseCase(language, playDay)
+            val success = if (savedState?.gameOver == true) true else repository.loadWordsFromUrl()
 
             if (!success) {
                 _uiState.value = GameUiState(isLoading = false, noInternetError = true)
@@ -91,9 +92,8 @@ class GameViewModel(
             }
 
             val today = playDay
-            val targetWord = getDailyWordUseCase(language, today)
-            val savedState = loadGameStateUseCase(language, today)
-            val stats = loadStatsUseCase(language)
+            val targetWord = savedState?.word ?: getDailyWordUseCase(language, today)
+            val stats = loadStatsUseCase(language).asOf(today)
 
             if (savedState != null &&
                 savedState.word == targetWord &&
@@ -270,9 +270,8 @@ class GameViewModel(
         // Persist the terminal result before starting asynchronous synchronization.
         saveGameState()
         viewModelScope.launch {
-            val newStats = updateStatsUseCase(_uiState.value.stats, won)
+            val newStats = loadStatsUseCase(currentLanguage).asOf(playDay)
             _uiState.value = _uiState.value.copy(stats = newStats, showStats = true)
-            saveStatsUseCase(newStats, currentLanguage)
             saveGameState()
             players.syncScores()
         }
@@ -289,7 +288,7 @@ class GameViewModel(
     fun addExtraTry() {
         viewModelScope.launch {
             val state = _uiState.value
-            if (state.extraTriesGranted >= MAX_EXTRA_TRIES) return@launch
+            if (state.gameOver || !state.showRewardedAdDialog || state.extraTriesGranted >= MAX_EXTRA_TRIES) return@launch
 
             _uiState.value = state.copy(
                 showRewardedAdDialog = false,

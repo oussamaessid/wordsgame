@@ -65,7 +65,7 @@ fun LanguageSelectionScreen(onLanguageSelected: (app.wordgame.domain.model.Langu
                     Spacer(modifier = Modifier.height(32.dp))
 
                     Text(
-                        text = "WORD GAME",
+                        text = "DailyWord",
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF1976D2),

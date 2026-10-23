@@ -149,26 +149,7 @@ fun PlayerToolbar(repository: PlayerRepository, onProfile: () -> Unit, onRanking
 
 @Composable
 fun HowToPlayDialog(onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("J’ai compris") } },
-        title = { Text("Comment jouer ?") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Trouvez le mot du jour de 5 lettres, en français ou en anglais.")
-                Text("Tapez un mot existant de 5 lettres puis appuyez sur VALIDER. Après chaque essai, les cases changent de couleur :")
-                HelpExample("PLAGE", 0, LetterState.CORRECT,
-                    "Vert : la lettre P est dans le mot, à la bonne place.")
-                HelpExample("CARTE", 1, LetterState.PRESENT,
-                    "Jaune : la lettre A est dans le mot, mais à une autre place.")
-                HelpExample("MONDE", 3, LetterState.WRONG,
-                    "Gris : la lettre D n’est pas dans le mot.")
-                Text("Vous avez 4 essais. Regardez une vidéo pour gagner jusqu’à 2 essais en plus.")
-                Text("Un nouveau mot chaque jour, pour chaque langue.")
-                Text("Le chronomètre ne compte que le temps passé sur le jeu : il s’arrête quand vous quittez l’écran.")
-                Text("Classement : le plus de mots trouvés d’abord, puis le temps total le plus court. Jour, semaine et mois.")
-                Text("Partagez votre résultat sans dévoiler le mot !")
-            }
-        })
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) { TutorialScreen(onDone = onDismiss) }
 }
 
 @Composable

@@ -39,17 +39,29 @@ class DailyOnboardingTest {
         compose.onNodeWithText("Jouer au défi du jour").performScrollTo().performClick()
         compose.runOnIdle { org.junit.Assert.assertTrue(finished) }
     }
-    @Test fun homeRemainsUsableOnSmallScreen() {
+    @Test fun homeFitsSmallScreenWithoutScrolling() {
+        var played = false
         compose.setContent { MaterialTheme {
-            androidx.compose.foundation.layout.Box(Modifier.requiredSize(280.dp, 420.dp)) { DailyHomeScreen {} }
+            androidx.compose.foundation.layout.Box(Modifier.requiredSize(280.dp, 420.dp)) { DailyHomeScreen { played = true } }
         } }
-        compose.onNodeWithText("Le mot du jour").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Comment jouer").performScrollTo().performClick()
-        compose.onNodeWithText("Bienvenue dans DailyWord").assertIsDisplayed()
+        compose.onNodeWithText("English").performClick()
+        compose.onNodeWithText("Today’s word").assertIsDisplayed()
+        compose.onNodeWithText("Your progress").assertIsDisplayed()
+        compose.onNodeWithText("Win rate").assertIsDisplayed()
+        compose.onNodeWithText("Play").assertIsDisplayed().performClick()
+        compose.runOnIdle { org.junit.Assert.assertTrue(played) }
+        compose.onAllNodes(hasScrollAction()).assertCountEquals(0)
+        compose.onNodeWithText("Comment jouer").assertDoesNotExist()
+        compose.onNodeWithText("Vos derniers défis").assertDoesNotExist()
     }
-    @Test fun homeShowsDailyWordAndHelp() {
+    @Test fun homeLanguageChangesImmediately() {
         compose.setContent { MaterialTheme { DailyHomeScreen {} } }
-        compose.onNodeWithText("DailyWord").assertIsDisplayed()
-        compose.onNodeWithText("Comment jouer").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("English").performClick()
+        compose.onNodeWithText("Today’s word").assertIsDisplayed()
+        compose.onNodeWithText("Your progress").assertIsDisplayed()
+        compose.onNodeWithText("Français").performClick()
+        compose.onNodeWithText("Le mot du jour").assertIsDisplayed()
+        compose.onNodeWithText("Votre progression").assertIsDisplayed()
+        compose.onNodeWithText("Today’s word").assertDoesNotExist()
     }
 }

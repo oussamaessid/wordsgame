@@ -58,3 +58,12 @@ La sauvegarde SharedPreferences conservait seulement la dernière partie par lan
 - Écran toujours défilant, états du défi et accès aux résultats conservés. Aucun changement des sauvegardes ou des règles du jeu.
 - Compilation debug et tests unitaires réussis. Test Android ajouté pour l’accès au défi et à l’aide dans une surface de 280 × 420 dp.
 - Vérification visuelle sur émulateur limitée : le système Android affiche « System UI isn’t responding » et le runner s’arrête avant les tests. Les nouveaux tests d’interface sont compilés, mais leur exécution n’est pas validée sur cette passe.
+
+## Accueil fixe et bilingue — 24 octobre 2026
+
+- Suppression du défilement vertical de l’accueil, de sa carte « Comment jouer » et de sa section « Vos derniers défis », à la demande du joueur.
+- Mise en page compacte selon la hauteur disponible : les éléments décoratifs et textes secondaires disparaissent sur les petits écrans pour garder la langue, le défi, son bouton et les statistiques visibles.
+- Tous les textes de l’accueil, états, actions, statistiques et dates passent en anglais ou français immédiatement selon la langue choisie ; choix toujours mémorisé.
+- Archives et sauvegardes existantes conservées. L’aide reste accessible dans la barre supérieure existante ; l’ancien historique n’est plus présenté sur l’accueil.
+- Tests d’interface adaptés : absence de défilement, bouton Jouer accessible sur 280 × 420 dp, bascule français/anglais et absence des deux sections retirées.
+- Vérification finale : compilation APK et tests Android réussie ; 16 tests unitaires réussis. Les tests d’interface adaptés sont compilés, sans nouvelle exécution sur l’émulateur instable décrit ci-dessus.

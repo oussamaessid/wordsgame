@@ -39,6 +39,14 @@ class DailyOnboardingTest {
         compose.onNodeWithText("Jouer au défi du jour").performScrollTo().performClick()
         compose.runOnIdle { org.junit.Assert.assertTrue(finished) }
     }
+    @Test fun homeRemainsUsableOnSmallScreen() {
+        compose.setContent { MaterialTheme {
+            androidx.compose.foundation.layout.Box(Modifier.requiredSize(280.dp, 420.dp)) { DailyHomeScreen {} }
+        } }
+        compose.onNodeWithText("Le mot du jour").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Comment jouer").performScrollTo().performClick()
+        compose.onNodeWithText("Bienvenue dans DailyWord").assertIsDisplayed()
+    }
     @Test fun homeShowsDailyWordAndHelp() {
         compose.setContent { MaterialTheme { DailyHomeScreen {} } }
         compose.onNodeWithText("DailyWord").assertIsDisplayed()

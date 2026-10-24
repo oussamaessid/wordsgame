@@ -49,3 +49,12 @@ La sauvegarde SharedPreferences conservait seulement la dernière partie par lan
 - Guide Windows/macOS/Linux dans `PRODUCTION.md` : SDK, Firebase, transfert privé de la clé existante, génération AAB et APK, conservation des données lors d’une mise à jour.
 - Vérification du garde-fou `:app:preReleaseBuild` : échec attendu avec « Signature de production absente ». Aucun APK/AAB signé de production créé, aucune publication.
 - Vérification après changement de version : `testDebugUnitTest assembleDebug --offline` réussi, 16 tests unitaires sans échec.
+
+## Refonte visuelle de l’accueil — 24 octobre 2026
+
+- Fond clair bleuté, typographie hiérarchisée, carte principale en dégradé bleu avec état et date lisibles, cinq cases décoratives sans indice sur la solution, bouton d’action blanc très visible.
+- Choix de langue en contrôle segmenté, mémorisé immédiatement sur l’appareil.
+- Statistiques en trois cartes et série dans un encart distinct, aide en carte et historique en lignes tactiles.
+- Écran toujours défilant, états du défi et accès aux résultats conservés. Aucun changement des sauvegardes ou des règles du jeu.
+- Compilation debug et tests unitaires réussis. Test Android ajouté pour l’accès au défi et à l’aide dans une surface de 280 × 420 dp.
+- Vérification visuelle sur émulateur limitée : le système Android affiche « System UI isn’t responding » et le runner s’arrête avant les tests. Les nouveaux tests d’interface sont compilés, mais leur exécution n’est pas validée sur cette passe.

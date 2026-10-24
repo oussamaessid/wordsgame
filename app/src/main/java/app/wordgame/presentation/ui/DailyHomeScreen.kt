@@ -1,6 +1,16 @@
 package app.wordgame.presentation.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -34,32 +44,119 @@ fun DailyHomeScreen(onLanguageSelected: (Language) -> Unit) {
     }
     LaunchedEffect(Unit) { while (true) { delay(1000); day = PlayerPeriods.today().toString() } }
     val today = game?.takeIf { it.date == day }
-    Column(Modifier.fillMaxSize().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("DailyWord", style = MaterialTheme.typography.headlineLarge, color = androidx.compose.ui.graphics.Color(0xFF1976D2))
-        Text("Un mot, un rendez-vous chaque jour.")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Language.values().forEach { item -> FilterChip(selected = item == language, onClick = { languageCode = item.code }, label = { Text(item.displayName) }) }
+    val blue = Color(0xFF1769E0)
+    val ink = Color(0xFF18243B)
+    val muted = Color(0xFF69758A)
+    val dateLabel = LocalDate.parse(day).format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH))
+    Column(
+        Modifier.fillMaxSize().background(Color(0xFFF5F7FC)).navigationBarsPadding()
+            .verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("VOTRE PAUSE QUOTIDIENNE", fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold, color = blue)
+            Text("DailyWord", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = ink, letterSpacing = (-1).sp)
+            Text("Un petit défi. Une belle habitude.", color = muted, style = MaterialTheme.typography.bodyMedium)
         }
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Défi du jour · $day", style = MaterialTheme.typography.titleLarge)
-                Text(when { today?.gameOver == true -> if (today.won) "Terminé · Bravo !" else "Terminé · Revenez demain !"
-                    today?.guesses?.isNotEmpty() == true -> "Commencé · ${today.guesses.size} essai(s)"
-                    else -> "Disponible · 5 lettres à trouver" })
-                Button(onClick = { onLanguageSelected(language) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    Text(when { today?.gameOver == true -> "Consulter le résultat"; today?.guesses?.isNotEmpty() == true -> "Reprendre"; else -> "Jouer" })
+        Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFFE9EEF7)) {
+            Row(Modifier.fillMaxWidth().padding(5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Language.values().forEach { item ->
+                    val active = language == item
+                    Surface(onClick = {
+                        languageCode = item.code
+                        context.getSharedPreferences("WordGame_Settings", 0).edit().putString("last_language", item.code).apply()
+                    }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp),
+                        color = if (active) Color.White else Color.Transparent) {
+                        Box(Modifier.heightIn(min = 48.dp).padding(10.dp), contentAlignment = Alignment.Center) {
+                            Text(item.displayName, color = if (active) blue else muted, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
-                Text("Un nouveau défi à minuit. 4 essais, jusqu’à 2 essais bonus avec une vidéo.", style = MaterialTheme.typography.bodySmall)
             }
         }
-        Text("Vos statistiques · ${language.displayName}", style = MaterialTheme.typography.titleMedium)
-        Text("${stats.totalPlayed} parties jouées · ${stats.wins} victoires · ${stats.winRate} % de réussite")
-        Text("Série de victoires : ${stats.currentStreak} jour(s) · Record : ${stats.maxStreak}")
-        OutlinedButton(onClick = { help = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Comment jouer") }
-        if (history.isNotEmpty()) Text("Résultats sauvegardés · disponibles hors connexion", style = MaterialTheme.typography.titleMedium)
-        history.forEach { result ->
-            OutlinedButton(onClick = { selected = result }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text("${result.date} · ${if (result.won) "Gagné" else "Terminé"} · ${result.guesses.size} essai(s)")
+        Surface(shape = RoundedCornerShape(28.dp), shadowElevation = 8.dp, color = blue) {
+            Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF1263DD), Color(0xFF3549AD))))
+                .padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Surface(shape = RoundedCornerShape(50), color = Color.White.copy(alpha = 0.16f)) {
+                    Text(when { today?.gameOver == true -> "✓  DÉFI TERMINÉ"
+                        today?.guesses?.isNotEmpty() == true -> "●  EN COURS"
+                        else -> "●  DISPONIBLE AUJOURD’HUI" },
+                        Modifier.padding(horizontal = 12.dp, vertical = 7.dp), fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, color = Color.White)
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Le mot du jour", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(dateLabel.replaceFirstChar { it.titlecase(Locale.FRENCH) }, color = Color(0xFFDCE7FF), fontSize = 13.sp)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    repeat(5) { index ->
+                        Surface(Modifier.weight(1f).aspectRatio(1f), shape = RoundedCornerShape(10.dp),
+                            color = listOf(Color(0xFF71B591), Color(0xFFE2BC63), Color.White.copy(alpha = 0.18f),
+                                Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.18f))[index]) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("?", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+                Text(when { today?.gameOver == true -> if (today.won) "Bien joué ! Votre résultat vous attend." else "Défi relevé. Demain, une nouvelle chance !"
+                    today?.guesses?.isNotEmpty() == true -> "${today.guesses.size} essai(s) déjà joué(s). À vous de continuer."
+                    else -> "5 lettres à trouver. À vous de jouer." }, color = Color.White, fontSize = 14.sp)
+                Button(onClick = { onLanguageSelected(language) }, shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = blue),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) {
+                    Text(when { today?.gameOver == true -> "Consulter le résultat"; today?.guesses?.isNotEmpty() == true -> "Reprendre"; else -> "Jouer" }, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                Text("Nouveau mot à minuit · 4 essais + 2 bonus vidéo", color = Color(0xFFDCE7FF), fontSize = 11.sp)
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Votre progression", color = ink, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                HomeMetric("Parties", stats.totalPlayed.toString(), blue, Modifier.weight(1f))
+                HomeMetric("Victoires", stats.wins.toString(), Color(0xFF258160), Modifier.weight(1f))
+                HomeMetric("Réussite", "${stats.winRate}%", blue, Modifier.weight(1f))
+            }
+            Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFFFFF1DC)) {
+                Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("✦", color = Color(0xFFAD6B11), fontSize = 26.sp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("${stats.currentStreak} jour(s) de victoires", fontWeight = FontWeight.Bold, color = ink)
+                        Text("Votre record : ${stats.maxStreak} jour(s)", fontSize = 12.sp, color = Color(0xFF83643B))
+                    }
+                }
+            }
+            Text("Statistiques en ${language.displayName.lowercase(Locale.FRENCH)}", fontSize = 11.sp, color = muted)
+        }
+        Surface(onClick = { help = true }, shape = RoundedCornerShape(18.dp), color = Color.White) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("?", color = blue, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Column(Modifier.weight(1f)) {
+                    Text("Comment jouer", color = ink, fontWeight = FontWeight.SemiBold)
+                    Text("Découvrez les règles en quelques essais", color = muted, fontSize = 12.sp)
+                }
+                Text("›", fontSize = 26.sp, color = muted)
+            }
+        }
+        if (history.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Vos derniers défis", color = ink, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Sauvegardés sur cet appareil · hors connexion", color = muted, fontSize = 12.sp)
+                history.forEach { result ->
+                    Surface(onClick = { selected = result }, shape = RoundedCornerShape(16.dp), color = Color.White) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(if (result.won) "✓" else "•", color = if (result.won) Color(0xFF258160) else muted, fontSize = 24.sp)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(LocalDate.parse(result.date).format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.FRENCH)), color = ink, fontWeight = FontWeight.SemiBold)
+                                Text("${if (result.won) "Gagné" else "Terminé"} · ${result.guesses.size} essai(s)", color = muted, fontSize = 12.sp)
+                            }
+                            Text("›", color = muted, fontSize = 24.sp)
+                        }
+                    }
+                }
             }
         }
     }
@@ -68,6 +165,17 @@ fun DailyHomeScreen(onLanguageSelected: (Language) -> Unit) {
         targetWord = result.word, stats = stats, onDismiss = { selected = null }, language = language,
         gameStartTime = result.gameStartTime, gameEndTime = result.gameEndTime, day = result.date,
         guesses = result.guesses, maxAttempts = 4 + result.extraTriesGranted) }
+}
+
+@Composable
+private fun HomeMetric(label: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(18.dp), color = Color.White) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(value, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = Color(0xFF69758A), fontSize = 11.sp)
+        }
+    }
 }
 
 @Composable

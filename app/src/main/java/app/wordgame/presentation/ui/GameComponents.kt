@@ -1,5 +1,10 @@
 package app.wordgame.presentation.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,7 +69,7 @@ fun GameHeader(
             ) {
                 IconButton(
                     onClick = onBackClick,
-                    modifier = Modifier.size(if (isSmallScreen) 40.dp else 48.dp),
+                    modifier = Modifier.size(48.dp),
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = Color(0xFF1976D2),
                         contentColor = Color.White
@@ -86,13 +91,15 @@ fun GameHeader(
                         fontSize = if (isSmallScreen) 18.sp else 24.sp,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF1976D2),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         letterSpacing = 1.sp
                     )
                 }
 
                 IconButton(
                     onClick = onStatsClick,
-                    modifier = Modifier.size(if (isSmallScreen) 40.dp else 48.dp),
+                    modifier = Modifier.size(48.dp),
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = Color(0xFF1976D2),
                         contentColor = Color.White
@@ -255,12 +262,9 @@ fun LetterCell(
         if (letter.isNotEmpty()) {
             Text(
                 text = letter.uppercase(),
-                fontSize = when {
-                    size < 35.dp -> 16.sp
-                    size < 45.dp -> 20.sp
-                    size < 56.dp -> 24.sp
-                    else         -> 28.sp
-                },
+                // Letter glyphs fit their cells; TalkBack still reads the full letter.
+                fontSize = (size.value * 0.46f / androidx.compose.ui.platform.LocalDensity.current.fontScale).sp,
+                maxLines = 1,
                 fontWeight = FontWeight.Bold,
                 color = if (state == app.wordgame.domain.model.LetterState.EMPTY) Color(0xFF333333) else Color.White
             )
@@ -278,7 +282,8 @@ fun GameKeyboard(
     viewModel: app.wordgame.presentation.viewmodel.GameViewModel,
     gameOver: Boolean,
     language: app.wordgame.domain.model.Language,
-    currentGuessLength: Int
+    currentGuessLength: Int,
+    compact: Boolean = false
 ) {
     val layout = if (language == app.wordgame.domain.model.Language.FRENCH) {
         listOf(
@@ -297,8 +302,7 @@ fun GameKeyboard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp)
-            .windowInsetsPadding(WindowInsets.navigationBars),
+            .padding(horizontal = 4.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
     ) {
@@ -329,11 +333,17 @@ fun GameKeyboard(
                             enabled = !gameOver,
                             modifier = Modifier.weight(1.5f)
                         )
+                        if (compact) KeyboardKey(
+                            text = "✓", state = app.wordgame.domain.model.LetterState.EMPTY,
+                            onClick = { onKeyPress("ENTER") }, enabled = currentGuessLength == 5 && !gameOver,
+                            modifier = Modifier.weight(1.5f),
+                            description = if (language == app.wordgame.domain.model.Language.FRENCH) "Valider" else "Verify"
+                        )
                     }
                 }
             }
 
-            Row(
+            if (!compact) Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -344,7 +354,7 @@ fun GameKeyboard(
                     enabled = isEnabled,
                     modifier = Modifier
                         .fillMaxWidth(0.65f)
-                        .height(52.dp),
+                        .heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isEnabled) Color(0xFF1976D2) else Color(0xFFBBBBBB),
@@ -368,7 +378,8 @@ fun KeyboardKey(
     state: app.wordgame.domain.model.LetterState,
     onClick: () -> Unit,
     enabled: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    description: String = text
 ) {
     val backgroundColor = when (state) {
         app.wordgame.domain.model.LetterState.CORRECT -> Color(0xFF4CAF50)
@@ -384,15 +395,17 @@ fun KeyboardKey(
 
     Box(
         modifier = modifier
-            .height(46.dp)
+            .height(48.dp)
+            .semantics { contentDescription = description }
             .clip(RoundedCornerShape(8.dp))
             .background(backgroundColor)
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            fontSize = 16.sp,
+            fontSize = (16f / androidx.compose.ui.platform.LocalDensity.current.fontScale).sp,
+            maxLines = 1,
             color = textColor,
             fontWeight = FontWeight.Bold
         )

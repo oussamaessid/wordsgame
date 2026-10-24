@@ -3,6 +3,8 @@ package app.wordgame.presentation.ui
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,7 +99,7 @@ fun DailyWordGameScreen(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(32.dp)
+                modifier = Modifier.verticalScroll(rememberScrollState()).padding(24.dp)
             ) {
                 Text(text = "📡", fontSize = 64.sp)
                 Text(
@@ -165,114 +167,54 @@ fun DailyWordGameScreen(
         return
     }
 
-    val configuration = LocalConfiguration.current
-    val screenHeight = configuration.screenHeightDp
-    val isSmallScreen = screenHeight < 700
-
-    val cellSize = when {
-        screenHeight < 600 -> 38.dp
-        screenHeight < 700 -> 45.dp
-        screenHeight < 800 -> 52.dp
-        else -> 52.dp
-    }
-    val cellSpacing = when {
-        screenHeight < 600 -> 4.dp
-        screenHeight < 700 -> 6.dp
-        else -> 8.dp
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White)
-                .navigationBarsPadding()
-        ) {
-            GameHeader(
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.White).navigationBarsPadding()) {
+        val landscape = maxWidth > maxHeight && maxWidth >= 480.dp
+        val fullHeader = !landscape && maxHeight >= 440.dp
+        val compact = maxHeight < 560.dp
+        val spacing = if (compact) 4.dp else 6.dp
+        var elapsed by remember { mutableLongStateOf(viewModel.elapsedMs()) }
+        LaunchedEffect(uiState.gameStartTime) { while (true) { elapsed = viewModel.elapsedMs(); delay(250) } }
+        val board: @Composable (Modifier) -> Unit = { modifier ->
+            BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+                val cell = responsiveCellSize(maxWidth.value, maxHeight.value, uiState.maxAttempts, spacing.value).dp
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                    GameGrid(currentGuess = uiState.currentGuess, guesses = uiState.guesses, viewModel = viewModel,
+                        cellSize = cell, cellSpacing = spacing, maxAttempts = uiState.maxAttempts,
+                        modifier = Modifier.fillMaxWidth().padding(4.dp))
+                }
+            }
+        }
+        val keyboard: @Composable () -> Unit = {
+            GameKeyboard(onKeyPress = viewModel::onKeyPressed, viewModel = viewModel, gameOver = uiState.gameOver,
+                language = language, currentGuessLength = uiState.currentGuess.length, compact = compact || landscape)
+        }
+        Column(Modifier.fillMaxSize()) {
+            if (fullHeader) GameHeader(
                 title = if (language == app.wordgame.domain.model.Language.FRENCH) "MOT DU JOUR" else "DAILY WORD",
-                subtitle = if (language == app.wordgame.domain.model.Language.FRENCH) "Aujourd'hui" else "Today",
-                backButtonText = if (language == app.wordgame.domain.model.Language.FRENCH) "Retour" else "Back",
-                onBackClick = onBackToLanguageSelection,
-                onStatsClick = { viewModel.toggleStatsDialog(true) },
-                isSmallScreen = isSmallScreen,
-                language = language
-            )
-
-            var elapsed by remember { mutableLongStateOf(viewModel.elapsedMs()) }
-            LaunchedEffect(uiState.gameStartTime) { while (true) { elapsed = viewModel.elapsedMs(); delay(250) } }
-            Text("⏱ " + app.wordgame.domain.model.GameTimer.format(elapsed),
-                modifier = Modifier.align(Alignment.CenterHorizontally), color = Color(0xFF1976D2))
-            val maxAttempts = uiState.maxAttempts
-
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                val availableHeight = maxHeight
-                val spacing = cellSpacing
-                val totalSpacing = spacing * (maxAttempts - 1)
-                val padding = 32.dp
-
-                val finalCellSize = minOf(
-                    cellSize,
-                    (availableHeight - totalSpacing - padding) / maxAttempts
-                )
-
-                // FIX: key(uiState.maxAttempts) force Compose à reconstruire
-                // entièrement la grille quand une ligne bonus est débloquée.
-                key(uiState.maxAttempts) {
-                    GameGrid(
-                        currentGuess = uiState.currentGuess,
-                        guesses = uiState.guesses,
-                        viewModel = viewModel,
-                        cellSize = finalCellSize,
-                        cellSpacing = spacing,
-                        maxAttempts = maxAttempts,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentHeight()
-                            .padding(vertical = 4.dp, horizontal = 4.dp)
-                    )
+                subtitle = "", backButtonText = if (language == app.wordgame.domain.model.Language.FRENCH) "Retour" else "Back",
+                onBackClick = onBackToLanguageSelection, onStatsClick = { viewModel.toggleStatsDialog(true) },
+                isSmallScreen = compact, language = language)
+            else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.TextButton(onClick = onBackToLanguageSelection) {
+                    Text(if (language == app.wordgame.domain.model.Language.FRENCH) "Retour" else "Back")
+                }
+                Text("DailyWord", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                androidx.compose.material3.TextButton(onClick = { viewModel.toggleStatsDialog(true) }) {
+                    Text(if (language == app.wordgame.domain.model.Language.FRENCH) "Statistiques" else "Statistics")
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            AnimatedVisibility(
-                visible = uiState.invalidWordError,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .background(Color(0xFFD32F2F), RoundedCornerShape(10.dp))
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (language == app.wordgame.domain.model.Language.FRENCH)
-                            "❌ Mot non reconnu !" else "❌ Word not found!",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                }
+            Text(if (uiState.invalidWordError) {
+                if (language == app.wordgame.domain.model.Language.FRENCH) "Mot non reconnu !" else "Word not found!"
+            } else "⏱ " + app.wordgame.domain.model.GameTimer.format(elapsed),
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                color = if (uiState.invalidWordError) Color(0xFFD32F2F) else Color(0xFF1976D2), fontSize = 13.sp)
+            if (landscape) Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                board(Modifier.weight(1f).fillMaxHeight())
+                Column(Modifier.weight(1.4f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) { keyboard() }
+            } else {
+                board(Modifier.fillMaxWidth().weight(1f))
+                keyboard()
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            GameKeyboard(
-                onKeyPress = { key -> viewModel.onKeyPressed(key) },
-                viewModel = viewModel,
-                gameOver = uiState.gameOver,
-                language = language,
-                currentGuessLength = uiState.currentGuess.length
-            )
-
         }
 
         if (uiState.showStats && (!(uiState.gameOver || uiState.won) || showCompletionDialog)) {

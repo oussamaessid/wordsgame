@@ -67,3 +67,27 @@ La sauvegarde SharedPreferences conservait seulement la dernière partie par lan
 - Archives et sauvegardes existantes conservées. L’aide reste accessible dans la barre supérieure existante ; l’ancien historique n’est plus présenté sur l’accueil.
 - Tests d’interface adaptés : absence de défilement, bouton Jouer accessible sur 280 × 420 dp, bascule français/anglais et absence des deux sections retirées.
 - Vérification finale : compilation APK et tests Android réussie ; 16 tests unitaires réussis. Les tests d’interface adaptés sont compilés, sans nouvelle exécution sur l’émulateur instable décrit ci-dessus.
+
+## Adaptation aux tailles de téléphone — 24 octobre 2026
+
+- Accueil : organisation en colonnes en portrait et côte à côte en paysage. Mode minimal lorsque la hauteur est très réduite. Toujours sans défilement vertical et toujours bilingue.
+- Avec une très grande police et peu de place, les statistiques restent accessibles dans une fenêtre via un bouton de 48 dp, plutôt que de repousser le bouton Jouer hors de l’écran.
+- Jeu : dimensionnement des cases selon la largeur et la hauteur réellement disponibles. Taille minimale lisible et défilement local de la grille si les six lignes ne peuvent pas tenir. Plus de taille négative lorsque le clavier prend la majeure partie de la hauteur.
+- Paysage : grille et clavier côte à côte, en-tête réduit. Sur les petits portraits, touche Valider intégrée au clavier. Hauteur des touches portée à 48 dp ; description d’accessibilité conservée. Les lettres restent ajustées à leurs cases.
+- Suppression du double espacement de barre de navigation autour du clavier. Barre de profil affichée à l’accueil, espace de jeu réservé à la grille/clavier. Profil et classement restent accessibles depuis l’accueil, et classement depuis les résultats.
+- Rotation : écran de jeu et langue conservés avec l’état sauvegardable Compose, au lieu de revenir automatiquement à l’accueil.
+- Résultats : statistiques en colonnes de largeur flexible et de hauteur extensible ; bouton Fermer de 48 dp minimum. Fenêtres et aide restent défilantes pour le texte agrandi. Cases de tutoriel adaptées à la largeur réelle.
+- Vérifications initiales : 19 tests unitaires réussis (dont trois tests de dimensionnement avec 4 à 6 lignes, largeurs 240 à 600 dp et hauteurs très faibles). Neuf tests sur émulateur réussis, incluant six formats d’accueil (240 × 320 à 800 × 360 dp), polices jusqu’à 200 %, clavier français/anglais, tutoriel et sauvegardes.
+- Les contraintes extrêmes sont traitées par une présentation compacte ou un défilement local dans le jeu et les fenêtres. Cette recette ne remplace pas les essais sur chaque appareil physique, téléphone pliant ou configuration constructeur.
+
+## « Comment jouer » centré et ouverture initiale — 24 octobre 2026
+
+- Tutoriel présenté dans une carte blanche centrée sur un fond doux, largeur limitée, coins arrondis et indicateur de progression en trois étapes. Sur les petites hauteurs, le contenu peut défiler à l’intérieur de la carte.
+- Exemples interactifs avec les mêmes règles de coloration que le jeu : CARTE / PLAGE en français, TRAIN / PLANT en anglais. Légendes explicites en plus des couleurs.
+- Ouverture automatique au premier lancement conservée. Le choix terminé/passé est mémorisé ; aucune réinitialisation des choix ou statistiques des joueurs existants.
+- À la première utilisation, le bouton final ouvre directement le défi quotidien. Passer revient à l’accueil. Le tutoriel reste accessible depuis l’icône d’aide ; sa langue suit le choix de langue enregistré.
+- Aucune publicité dans le tutoriel ni publicité d’ouverture avant le premier tutoriel.
+- Tests ajoutés : ouverture initiale et persistance du choix avec des préférences isolées ; tutoriel anglais et action de démarrage de partie.
+- Un test supplémentaire a détecté un débordement de l’accueil à 200 % sur 280 × 420 dp : les éléments décoratifs ont été supprimés dans ce mode pour rendre les statistiques accessibles.
+- Vérification finale combinée : `testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug --offline` réussi, 19 tests unitaires et 12 tests sur émulateur réussis. Le test à 200 % précédemment en échec passe après correction.
+- Vérification visuelle réelle : tutoriel centré contrôlé sur emulator-5554 ; aperçu local dans `app/build/outputs/previews/tutorial-modern.png`. Aucune suppression des données de l’application pour simuler une réinstallation : le test de premier lancement utilise ses propres préférences isolées.

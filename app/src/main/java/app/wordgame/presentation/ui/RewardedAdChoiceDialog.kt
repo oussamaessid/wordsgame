@@ -1,6 +1,9 @@
 package app.wordgame.presentation.ui
 
 import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -16,6 +19,7 @@ fun RewardedAdChoiceDialog(
         onDismissRequest = { },
         title = {
             Text(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
                 text = if (language == app.wordgame.domain.model.Language.FRENCH)
                     "Dernier essai disponible ! 🎁"
                 else
@@ -26,6 +30,7 @@ fun RewardedAdChoiceDialog(
         },
         text = {
             Text(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
                 text = if (language == app.wordgame.domain.model.Language.FRENCH)
                     "Regardez une courte vidéo pour obtenir un essai supplémentaire. Voulez-vous continuer ?"
                 else

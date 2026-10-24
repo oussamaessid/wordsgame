@@ -225,14 +225,16 @@ fun StatsDialog(
                         value = stats.totalPlayed.toString(),
                         color = Color(0xFF1976D2),
                         isVerySmall = isVerySmall,
-                        isSmall = isSmall
+                        isSmall = isSmall,
+                        modifier = Modifier.weight(1f)
                     )
                     StatBox(
                         title = translations["win_rate"]!!,
                         value = "${stats.winRate}%",
                         color = Color(0xFF388E3C),
                         isVerySmall = isVerySmall,
-                        isSmall = isSmall
+                        isSmall = isSmall,
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -245,14 +247,16 @@ fun StatsDialog(
                         value = stats.currentStreak.toString(),
                         color = Color(0xFFFFB300),
                         isVerySmall = isVerySmall,
-                        isSmall = isSmall
+                        isSmall = isSmall,
+                        modifier = Modifier.weight(1f)
                     )
                     StatBox(
                         title = translations["max_streak"]!!,
                         value = stats.maxStreak.toString(),
                         color = Color(0xFFF57C00),
                         isVerySmall = isVerySmall,
-                        isSmall = isSmall
+                        isSmall = isSmall,
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -286,7 +290,7 @@ fun StatsDialog(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth(0.80f)
-                        .height(buttonHeight),
+                        .heightIn(min = 48.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
                 ) {
@@ -357,7 +361,8 @@ fun StatBox(
     value: String,
     color: Color,
     isVerySmall: Boolean = false,
-    isSmall: Boolean = false
+    isSmall: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val boxSize = when {
         isVerySmall -> 66.dp
@@ -378,13 +383,15 @@ fun StatBox(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = Modifier.padding(horizontal = 4.dp)
+        modifier = modifier.padding(horizontal = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(boxSize)
+                .fillMaxWidth()
+                .heightIn(min = boxSize)
                 .background(Color(0xFFFAFAFA), RoundedCornerShape(14.dp))
-                .border(2.dp, color, RoundedCornerShape(14.dp)),
+                .border(2.dp, color, RoundedCornerShape(14.dp))
+                .padding(horizontal = 4.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

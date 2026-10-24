@@ -116,7 +116,7 @@ fun PlayerScreen(repository: PlayerRepository, ranking: Boolean, setup: Boolean 
 @Composable
 fun PlayerToolbar(repository: PlayerRepository, onProfile: () -> Unit, onRanking: () -> Unit) {
     Surface(tonalElevation = 1.dp) {
-        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             TextButton(onClick = onProfile, modifier = Modifier.weight(1f)) {
                 PlayerAvatar(repository.currentProfile.avatar, 32.dp)
@@ -149,7 +149,13 @@ fun PlayerToolbar(repository: PlayerRepository, onProfile: () -> Unit, onRanking
 
 @Composable
 fun HowToPlayDialog(onDismiss: () -> Unit) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) { TutorialScreen(onDone = onDismiss) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val code = context.getSharedPreferences("WordGame_Settings", 0).getString("last_language", "fr")
+    val language = Language.values().firstOrNull { it.code == code } ?: Language.FRENCH
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        TutorialScreen(language = language, onDone = onDismiss)
+    }
 }
 
 @Composable

@@ -27,17 +27,21 @@ fun MainAppScreen() {
 
     val savedLanguage = remember { loadLanguage(context) }
 
-    var selectedLanguage by remember { mutableStateOf(savedLanguage) }
-    var currentScreen by remember {
-        mutableStateOf<Screen>(
-            Screen.LanguageSelection
-        )
-    }
+    var selectedLanguageCode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(savedLanguage?.code) }
+    val selectedLanguage = app.wordgame.domain.model.Language.values().firstOrNull { it.code == selectedLanguageCode }
+    var gameScreen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     val settings = remember { context.getSharedPreferences("WordGame_Settings", Context.MODE_PRIVATE) }
     var tutorial by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(!settings.getBoolean("tutorial_seen", false)) }
     if (tutorial) {
-        TutorialScreen(onDone = {
+        val tutorialLanguage = savedLanguage ?: app.wordgame.domain.model.Language.FRENCH
+        TutorialScreen(language = tutorialLanguage, onPlay = {
+            saveLanguage(context, tutorialLanguage)
+            selectedLanguageCode = tutorialLanguage.code
+            gameScreen = true
+            settings.edit().putBoolean("tutorial_seen", true).apply()
+            tutorial = false
+        }, onDone = {
             settings.edit().putBoolean("tutorial_seen", true).apply()
             tutorial = false
         })
@@ -55,15 +59,15 @@ fun MainAppScreen() {
         return
     }
     androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.fillMaxSize()) {
-        PlayerToolbar(players, onProfile = { playerPage = "profile" }, onRanking = { playerPage = "ranking" })
+        if (!gameScreen) PlayerToolbar(players, onProfile = { playerPage = "profile" }, onRanking = { playerPage = "ranking" })
         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.weight(1f)) {
-    when (currentScreen) {
+    when (if (gameScreen) Screen.DailyWordGame else Screen.LanguageSelection) {
         Screen.LanguageSelection -> {
             DailyHomeScreen(
                 onLanguageSelected = { language ->
                     saveLanguage(context, language)
-                    selectedLanguage = language
-                    currentScreen = Screen.DailyWordGame
+                    selectedLanguageCode = language.code
+                    gameScreen = true
                 }
             )
         }
@@ -73,7 +77,7 @@ fun MainAppScreen() {
                     language = language,
                     onRanking = { playerPage = "ranking" },
                     onBackToLanguageSelection = {
-                        currentScreen = Screen.LanguageSelection
+                        gameScreen = false
                     }
                 )
             }
